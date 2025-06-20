@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h2>Incident: {{ object.title }}</h2>
+  <p><strong>ID:</strong> {{ object.incident_id }}</p>
+  <p><strong>Description:</strong> {{ object.description }}</p>
+  <p><strong>Status:</strong> {{ object.get_status_display }}</p>
+  <p><strong>Severity:</strong> {{ object.get_severity_display }}</p>
+  <p><strong>Client:</strong> {{ object.client.name }}</p>
+  <p><strong>Incident Manager:</strong> {{ object.incident_manager }}</p>
+  <p><strong>Lead Responder:</strong> {{ object.lead_responder }}</p>
+  <p><strong>Responders:</strong> {{ object.responders.all|join:", " }}</p>
+  <a href="{% url 'core:incident_update' object.pk %}" class="btn btn-warning">Edit</a>
+  <a href="{% url 'core:incident_list' %}" class="btn btn-secondary">Back</a>
+</div>
+{% endblock %}

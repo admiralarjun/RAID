@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Clients</h2>
+        <a href="{% url 'core:client_create' %}" class="btn btn-primary">Add Client</a>
+    </div>
+    <ul class="list-group">
+        {% for client in clients %}
+        <li class="list-group-item bg-dark text-light mb-3 rounded shadow-sm">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Name:</strong> {{ client.name }}</p>
+                    <p class="mb-1"><strong>Organization:</strong> {{ client.organization }}</p>
+                    <p class="mb-1"><strong>Contact Person:</strong> {{ client.contact_person.get_full_name|default:client.contact_person.username }}</p>
+                    <p class="mb-1"><strong>Email:</strong> {{ client.email }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Phone:</strong> {{ client.phone }}</p>
+                    <p class="mb-1"><strong>Address:</strong> {{ client.address }}</p>
+                    <p class="mb-1"><strong>Onboarded Date:</strong> {{ client.onboarded_date }}</p>
+                    <p class="mb-1"><strong>Active:</strong> 
+                        <span class="badge {% if client.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ client.is_active|yesno:"Yes,No" }}
+                        </span>
+                    </p>
+                    <p class="mb-1"><strong>Authorized Users:</strong>
+                        {% if client.authorized_users.all %}
+                            {% for user in client.authorized_users.all %}
+                                <span class="badge bg-info text-dark">{{ user.get_full_name|default:user.username }}</span>{% if not forloop.last %} {% endif %}
+                            {% empty %}
+                                <span class="text-muted">None</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">None</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted">No clients available.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

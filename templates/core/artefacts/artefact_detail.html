@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Artefact Detail{% endblock %}
+{% load static %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="row">
+    <!-- Left: Raw log content -->
+    <div class="col-md-7 border-end" style="max-height: 80vh; overflow-y: scroll;">
+      <h4 class="mb-3">{{ artefact.name }} - Logs</h4>
+      <ul class="list-group">
+        {% for record in records %}
+          {% include "core/artefacts/partials/_record_entry.html" %}
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Right: Notes -->
+    <div class="col-md-5" style="max-height: 80vh; overflow-y: scroll;">
+      <h4 class="mb-3">Notes</h4>
+      <form method="post" action="{% url 'core:add_artefact_note' %}">
+        {% csrf_token %}
+        <input type="hidden" name="artefact_id" value="{{ artefact.id }}">
+        <textarea name="content" rows="4" class="form-control mb-2" placeholder="Add a note..."></textarea>
+        <button type="submit" class="btn btn-primary btn-sm">Save Note</button>
+      </form>
+      <hr>
+      {% for note in notes %}
+        {% include "core/artefacts/partials/_note_entry.html" %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

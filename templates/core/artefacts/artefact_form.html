@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h3>Upload Artefacts with Per-File Assignment</h3>
+
+  {% if success %}
+    <div class="alert alert-success">Successfully uploaded the following artefacts:</div>
+    <ul>
+      {% for file in uploaded_files %}
+        <li>{{ file.name }} → 
+            {% if success %}
+  <div class="alert alert-success">Successfully uploaded the following artefacts:</div>
+  <ul>
+    {% for file in uploaded_files %}
+      <li>
+        {{ file.name }} →
+        {% if file.assigned_to %}
+          {{ file.assigned_to.username }}
+        {% else %}
+          Unassigned
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="upload-form">
+    {% csrf_token %}
+    {{ form|crispy }}
+
+    <div class="form-group">
+      <label for="file">Select Files:</label>
+      <input type="file" name="file" id="file" class="form-control" multiple required>
+    </div>
+
+    <div id="file-preview" class="mt-4" style="display:none;">
+      <h5>Review Selected Files</h5>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Assign To</th>
+          </tr>
+        </thead>
+        <tbody id="file-preview-body">
+          <!-- Rows added via JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Upload Artefacts</button>
+  </form>
+</div>
+
+<script>
+  const userOptions = `
+    {% for user in users %}
+      <option value="{{ user.id }}">{{ user.username }}</option>
+    {% endfor %}
+  `;
+
+  document.getElementById('file').addEventListener('change', function () {
+    const files = this.files;
+    const previewBody = document.getElementById('file-preview-body');
+    previewBody.innerHTML = '';
+    [...files].forEach((file, idx) => {
+      previewBody.innerHTML += `
+        <tr>
+          <td>${file.name}</td>
+          <td>
+            <select name="assigned_to_${idx}" class="form-control">
+              <option value="">Unassigned</option>
+              ${userOptions}
+            </select>
+          </td>
+        </tr>
+      `;
+    });
+    document.getElementById('file-preview').style.display = files.length ? 'block' : 'none';
+  });
+</script>
+{% endblock %}

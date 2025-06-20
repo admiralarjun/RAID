@@ -1,0 +1,31 @@
+# Django Core
+Django>=4.2,<5.0  # Keep below 5.x for wider plugin compatibility unless you're testing with 5.x
+
+# Forms and UI
+django-crispy-forms
+crispy-bootstrap5
+
+# HTMX Integration
+django-htmx
+
+# Utility & Dev Tools
+django-extensions
+
+# File Handling
+pillow
+python-magic
+
+# Task Queue
+celery
+redis
+
+# Content Handling
+markdown
+bleach
+
+# Optional Dev
+ipython
+
+# Parsers
+python-evtx
+scapy

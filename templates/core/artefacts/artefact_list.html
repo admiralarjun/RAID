@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Artefacts{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Artefacts</h2>
+        <a href="{% url 'core:artefact_create' %}" class="btn btn-success">Upload Artefact</a>
+    </div>
+
+    {% if artefacts %}
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+        {% for artefact in artefacts %}
+            <div class="col">
+                <div class="card shadow-sm border-info h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ artefact.name }}</h5>
+                        <p class="card-text">
+                            Type: <strong>{{ artefact.get_artefact_type_display }}</strong><br>
+                            Uploaded: {{ artefact.uploaded_at|date:"M d, Y H:i" }}<br>
+                            By: {{ artefact.uploaded_by.get_full_name|default:artefact.uploaded_by.username }}<br>
+                            Parsed: <span class="badge {% if artefact.parsed %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ artefact.parsed|yesno:"Yes,No" }}
+                            </span>
+                        </p>
+                        <a href="{% url 'core:artefact_detail' artefact.pk %}" class="btn btn-primary btn-sm">View</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">No artefacts uploaded yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

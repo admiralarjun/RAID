@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Client - {{ client.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ client.name }} <small class="text-muted">({{ client.organization }})</small></h2>
+        <div>
+            <a href="{% url 'core:client_update' client.pk %}" class="btn btn-sm btn-outline-primary me-2">✏️ Edit</a>
+            <a href="{% url 'core:client_delete' client.pk %}" class="btn btn-sm btn-outline-danger">🗑️ Delete</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Client Details</h5>
+            <p><strong>Contact Person:</strong> {{ client.contact_person.get_full_name|default:client.contact_person.username }}</p>
+            <p><strong>Email:</strong> {{ client.email }}</p>
+            <p><strong>Phone:</strong> {{ client.phone }}</p>
+            <p><strong>Address:</strong> {{ client.address|default:"-" }}</p>
+            <p><strong>Onboarded Date:</strong> {{ client.onboarded_date|date:"d M Y, H:i" }}</p>
+            <p>
+                <strong>Status:</strong>
+                <span class="badge {% if client.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                    {{ client.is_active|yesno:"Active,Inactive" }}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Authorized Users</h5>
+            {% if client.authorized_users.all %}
+                {% for user in client.authorized_users.all %}
+                    <span class="badge bg-info text-dark me-1">{{ user.get_full_name|default:user.username }}</span>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">No authorized users assigned.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

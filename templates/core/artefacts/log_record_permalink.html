@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Log Record Permalink{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h4>Log Record #{{ record.record_index }}</h4>
+  <p><strong>Artefact:</strong> {{ record.artefact.name }}</p>
+  {% if record.timestamp %}
+    <p><strong>Timestamp:</strong> {{ record.timestamp }}</p>
+  {% endif %}
+  <pre class="bg-light p-3 border rounded">{{ record.content }}</pre>
+  {% if record.metadata %}
+    <h6 class="mt-3">Metadata</h6>
+    <pre class="bg-dark text-white p-3 rounded">{{ record.metadata|json_script:"recordMeta" }}</pre>
+  {% endif %}
+  <a href="{% url 'core:artefact_detail' pk=record.artefact.pk %}#record-{{ record.id }}" class="btn btn-secondary mt-3">Back to Artefact</a>
+</div>
+{% endblock %}

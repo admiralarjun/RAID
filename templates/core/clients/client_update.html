@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h2 class="mb-4">Update Client: {{ form.instance.name }}</h2>
+
+  <form method="post">
+    {% csrf_token %}
+    {{ form|crispy }}
+    
+    <div class="mt-3">
+      <button type="submit" class="btn btn-success">Update Client</button>
+      <a href="{% url 'core:client_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

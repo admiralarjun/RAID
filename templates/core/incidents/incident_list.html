@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Incidents</h2>
+    <a href="{% url 'core:incident_create' %}" class="btn btn-success">+ New Incident</a>
+  </div>
+  <div class="row">
+    {% for incident in incidents %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title mb-2">{{ incident.title }}</h5>
+            <h6 class="card-subtitle mb-2 text-muted">ID: {{ incident.incident_id }}</h6>
+            <p class="mb-1"><strong>Client:</strong> {{ incident.client.name }}</p>
+            <p class="mb-1"><strong>Status:</strong> {{ incident.get_status_display }}</p>
+            <p class="mb-2"><strong>Severity:</strong> {{ incident.get_severity_display }}</p>
+            <div>
+              <a href="{{ incident.get_absolute_url }}" class="btn btn-sm btn-primary">View</a>
+              <a href="{% url 'core:incident_update' incident.pk %}" class="btn btn-sm btn-warning">Edit</a>
+              <a href="{% url 'core:incident_delete' incident.pk %}" class="btn btn-sm btn-danger">Delete</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">No incidents found.</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

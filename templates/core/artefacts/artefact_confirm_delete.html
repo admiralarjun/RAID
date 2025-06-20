@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Delete Artefact{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h3>Are you sure you want to delete this artefact?</h3>
+  <p><strong>{{ artefact.name }}</strong> ({{ artefact.get_artefact_type_display }})</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a href="{% url 'core:artefact_detail' pk=artefact.pk %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}
