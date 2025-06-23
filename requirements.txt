@@ -29,3 +29,9 @@ ipython
 # Parsers
 python-evtx
 scapy
+
+# Database
+psycopg2-binary
+
+# AI
+google-genai

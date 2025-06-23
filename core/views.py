@@ -1,6 +1,7 @@
+# core/views.py
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -10,6 +11,7 @@ from .forms import *
 from django.views.generic.edit import DeleteView
 from .parser import parse_artefact_file
 from .utils import infer_artefact_type
+from django.db.models import Q
 
 # === Dashboard View ===
 
@@ -98,7 +100,7 @@ class UserProfileListView(LoginRequiredMixin, ListView):
 class UserProfileUpdateView(LoginRequiredMixin, UpdateView):
     model = UserProfile
     form_class = UserProfileForm
-    template_name = "core/users/form.html"
+    template_name = "core/users/user_profile_form.html"
     success_url = reverse_lazy("core:profile_list")
 
 
@@ -108,18 +110,26 @@ class ArtefactUploadView(LoginRequiredMixin, View):
     template_name = "core/artefacts/artefact_form.html"
 
     def get(self, request):
-        form = ArtefactForm()
+        incident_id = request.GET.get("incident")
+        form = ArtefactForm(initial={'incident': incident_id} if incident_id else None)
         users = User.objects.all()
-        return render(request, self.template_name, {'form': form, 'users': users})
+        incident = Incident.objects.filter(pk=incident_id).first() if incident_id else None
+        return render(request, self.template_name, {
+            'form': form,
+            'users': users,
+            'incident': incident
+        })
 
     def post(self, request):
         form = ArtefactForm(request.POST)
         files = request.FILES.getlist('file')
         users = User.objects.all()
 
+        incident = None
+        uploaded_files = []
+
         if form.is_valid() and files:
             incident = form.cleaned_data['incident']
-            uploaded_files = []
 
             for idx, f in enumerate(files):
                 assigned_to_id = request.POST.get(f'assigned_to_{idx}')
@@ -137,15 +147,18 @@ class ArtefactUploadView(LoginRequiredMixin, View):
                 uploaded_files.append(artefact)
 
             return render(request, self.template_name, {
-                'form': ArtefactForm(),
+                'form': ArtefactForm(initial={'incident': incident.pk}),
                 'users': users,
-                'uploaded_files': uploaded_files,
+                'incident': incident,
                 'success': True
             })
 
-        return render(request, self.template_name, {'form': form, 'users': users, 'error': True})
-
-
+        return render(request, self.template_name, {
+            'form': form,
+            'users': users,
+            'incident': incident,
+            'error': True
+        })
 
 class ArtefactUpdateView(LoginRequiredMixin, UpdateView):
     model = Artefact
@@ -163,6 +176,11 @@ class ArtefactDeleteView(LoginRequiredMixin, DeleteView):
     context_object_name = "artefact"
     success_url = reverse_lazy("core:artefact_list")
 
+    def get_success_url(self):
+        next_url = self.request.GET.get("next") or self.request.POST.get("next")
+        if next_url:
+            return next_url
+        return super().get_success_url()
 
 class ArtefactDetailView(LoginRequiredMixin, DetailView):
     model = Artefact
@@ -172,9 +190,25 @@ class ArtefactDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         artefact = self.get_object()
-        context["records"] = artefact.records.all()
+
+        # Handle filter
+        filters = self.request.GET.getlist('filter')
+        query = Q()
+        for f in filters:
+            if ':' in f:
+                op, val = f.split(':', 1)
+                if op == 'contains':
+                    query &= Q(content__icontains=val.strip())
+                elif op == 'notcontains':
+                    query &= ~Q(content__icontains=val.strip())
+                # Extend here for other ops like 'startswith', etc.
+
+        records = artefact.records.filter(query) if filters else artefact.records.all()
+
+        context["records"] = records
         context["notes"] = artefact.notes.select_related("author", "record")
         context["note_form"] = ArtefactNoteForm()
+        context["applied_filters"] = filters
         return context
 
 

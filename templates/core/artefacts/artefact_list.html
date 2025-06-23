@@ -1,35 +1,67 @@
 {% extends 'base.html' %}
 {% block title %}Artefacts{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Artefacts</h2>
-        <a href="{% url 'core:artefact_create' %}" class="btn btn-success">Upload Artefact</a>
-    </div>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cubes me-2"></i>Artefacts</h2>
+    <a href="{% url 'core:artefact_create' %}" class="btn btn-success">
+      <i class="fas fa-upload me-1"></i> Upload Artefact
+    </a>
+  </div>
 
-    {% if artefacts %}
-        <div class="row row-cols-1 row-cols-md-2 g-4">
-        {% for artefact in artefacts %}
-            <div class="col">
-                <div class="card shadow-sm border-info h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ artefact.name }}</h5>
-                        <p class="card-text">
-                            Type: <strong>{{ artefact.get_artefact_type_display }}</strong><br>
-                            Uploaded: {{ artefact.uploaded_at|date:"M d, Y H:i" }}<br>
-                            By: {{ artefact.uploaded_by.get_full_name|default:artefact.uploaded_by.username }}<br>
-                            Parsed: <span class="badge {% if artefact.parsed %}bg-success{% else %}bg-warning text-dark{% endif %}">
-                                {{ artefact.parsed|yesno:"Yes,No" }}
-                            </span>
-                        </p>
-                        <a href="{% url 'core:artefact_detail' artefact.pk %}" class="btn btn-primary btn-sm">View</a>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-        </div>
-    {% else %}
-        <div class="alert alert-info">No artefacts uploaded yet.</div>
-    {% endif %}
+  {% regroup artefacts by incident as incident_groups %}
+
+  {% if incident_groups %}
+    {% for group in incident_groups %}
+      <div class="mb-5">
+        <h5 class="mb-3">
+          <i class="fas fa-exclamation-triangle me-1"></i>Incident:
+          <a href="{% url 'core:incident_detail' group.grouper.incident_id %}">
+            <i class="fas fa-link me-1"></i>{{ group.grouper.title }}
+          </a>
+          <span class="text-muted small ms-2">
+            <i class="far fa-clock me-1"></i>({{ group.grouper.created_at|date:"M d, Y H:i" }})
+          </span>
+        </h5>
+
+        <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.9rem;">
+          <thead class="table-light">
+            <tr>
+              <th><i class="fas fa-file-alt me-1"></i>Name</th>
+              <th><i class="fas fa-tag me-1"></i>Type</th>
+              <th><i class="fas fa-calendar-alt me-1"></i>Uploaded</th>
+              <th><i class="fas fa-user me-1"></i>By</th>
+              <th><i class="fas fa-cogs me-1"></i>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for artefact in group.list %}
+              <tr>
+                <td class="text-break"><i class="fas fa-file me-1"></i>{{ artefact.name }}</td>
+                <td><i class="fas fa-shapes me-1"></i>{{ artefact.get_artefact_type_display }}</td>
+                <td><i class="far fa-clock me-1"></i>{{ artefact.uploaded_at|date:"M d, Y H:i" }}</td>
+                <td><i class="fas fa-user-circle me-1"></i>{{ artefact.uploaded_by.get_full_name|default:artefact.uploaded_by.username }}</td>
+                <td>
+                  <div class="d-flex gap-2">
+                    <a href="{% url 'core:artefact_detail' artefact.pk %}" class="btn btn-sm btn-outline-primary">
+                      <i class="fas fa-eye me-1"></i>View
+                    </a>
+                    <a href="{% url 'core:artefact_delete' artefact.pk %}" class="btn btn-sm btn-outline-danger">
+                      <i class="fas fa-trash-alt me-1"></i>Delete
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-info">
+      <i class="fas fa-info-circle me-1"></i>No artefacts uploaded yet.
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

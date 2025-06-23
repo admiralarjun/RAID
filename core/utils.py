@@ -4,6 +4,8 @@ def infer_artefact_type(filename):
         return 'evtx'
     elif ext in ['pcap', 'pcapng']:
         return 'pcap'
-    elif ext in ['xml', 'json', 'txt', 'log']:
-        return 'other'
+    elif ext == 'log':
+        return 'log'
+    elif ext in ['xml', 'json']:
+        return 'configs'
     return 'other'

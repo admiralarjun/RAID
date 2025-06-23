@@ -6,6 +6,6 @@
         • Ref: <a href="#record-{{ note.record.id }}">#{{ note.record.record_index }}</a>
       {% endif %}
     </p>
-    <div class="text-body">{{ note.content }}</div>
+    <div class="note-content markdown-body">{{ note.content|linebreaksbr }}</div>
   </div>
 </div>

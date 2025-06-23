@@ -1,33 +1,72 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Incidents</h2>
-    <a href="{% url 'core:incident_create' %}" class="btn btn-success">+ New Incident</a>
+<div class="container-fluid py-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+    <h2 class="mb-3 mb-md-0 fs-3">
+      <i class="fa fa-exclamation-triangle me-2"></i>Incidents
+    </h2>
+    <a href="{% url 'core:incident_create' %}" class="btn btn-success btn-lg">
+      <i class="fa fa-plus"></i> New
+    </a>
   </div>
-  <div class="row">
-    {% for incident in incidents %}
-      <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title mb-2">{{ incident.title }}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">ID: {{ incident.incident_id }}</h6>
-            <p class="mb-1"><strong>Client:</strong> {{ incident.client.name }}</p>
-            <p class="mb-1"><strong>Status:</strong> {{ incident.get_status_display }}</p>
-            <p class="mb-2"><strong>Severity:</strong> {{ incident.get_severity_display }}</p>
-            <div>
-              <a href="{{ incident.get_absolute_url }}" class="btn btn-sm btn-primary">View</a>
-              <a href="{% url 'core:incident_update' incident.pk %}" class="btn btn-sm btn-warning">Edit</a>
-              <a href="{% url 'core:incident_delete' incident.pk %}" class="btn btn-sm btn-danger">Delete</a>
+
+  {% if incidents %}
+    <div class="list-group">
+      {% for incident in incidents %}
+        <div class="list-group-item px-3 py-3 mb-3 border rounded shadow-sm">
+          <div class="row align-items-center">
+            <div class="col-12 col-md-4 mb-2 mb-md-0">
+              <div class="fw-semibold fs-5">
+                <i class="fa fa-file-alt me-1"></i>{{ incident.title }}
+              </div>
+              <div class="text-muted fs-6">
+                <i class="fa fa-hashtag me-1"></i>ID: {{ incident.incident_id }}
+              </div>
+              <div class="text-muted fs-6">
+                <i class="fa fa-user-tie me-1"></i>Client: {{ incident.client.name }}
+              </div>
+            </div>
+            <div class="col-12 col-md-8">
+              <div class="d-flex flex-wrap gap-3 justify-content-md-end align-items-center">
+                <span class="text-muted fs-6">
+                  <i class="fa fa-user-cog me-1"></i>Manager: <strong>{{ incident.incident_manager.get_full_name|default:incident.incident_manager.username }}</strong>
+                </span>
+                <span class="text-muted fs-6">
+                  <i class="fa fa-user-shield me-1"></i>Lead: <strong>{{ incident.lead_responder.get_full_name|default:incident.lead_responder.username|default:"—" }}</strong>
+                </span>
+                <span class="text-muted fs-6">
+                  <i class="fa fa-users me-1"></i>Responders: <strong>{{ incident.responders.count }}</strong>
+                </span>
+                <span class="text-muted fs-6">
+                  <i class="fa fa-calendar-plus me-1"></i>Created: <strong>{{ incident.created_at|date:"Y-m-d H:i" }}</strong>
+                </span>
+                <span class="text-muted fs-6">
+                  <i class="fa fa-signal me-1"></i>Severity: <strong>{{ incident.get_severity_display }}</strong>
+                </span>
+                <span class="text-muted fs-6">
+                  <i class="fa fa-tasks me-1"></i>Status: <strong>{{ incident.get_status_display }}</strong>
+                </span>
+                <span>
+                  <a href="{{ incident.get_absolute_url }}" class="btn btn-sm btn-outline-primary me-1" title="View">
+                    <i class="fa fa-eye"></i>
+                  </a>
+                  <a href="{% url 'core:incident_update' incident.pk %}" class="btn btn-sm btn-outline-warning me-1" title="Edit">
+                    <i class="fa fa-edit"></i>
+                  </a>
+                  <a href="{% url 'core:incident_delete' incident.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                    <i class="fa fa-trash"></i>
+                  </a>
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    {% empty %}
-      <div class="col-12">
-        <div class="alert alert-info">No incidents found.</div>
-      </div>
-    {% endfor %}
-  </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-info fs-5">
+      <i class="fa fa-info-circle me-1"></i>No incidents found.
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

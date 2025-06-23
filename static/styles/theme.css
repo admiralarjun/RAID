@@ -24,7 +24,7 @@
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
     --text-accent: var(--neon-blue);
-    --text-muted: #666666;
+    --text-muted: #b9b9b9;
     
     /* Status Colors */
     --danger: #ff073a;
@@ -47,7 +47,7 @@
     --cut-corner: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
     --cut-angled: polygon(0 0, 100% 0, 95% 100%, 0 100%);
     --cut-sidebar: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
-    --cut-header: polygon(0 0, 100% 0, 100% 75%, 85% 100%, 0 100%);
+    --cut-header: polygon(0 0, 100% 0, 100% 95%, 95% 100%, 0 100%);
     
     /* Shadows & Glows */
     --glow-primary: 0 0 20px rgba(0, 212, 255, 0.5);
@@ -124,6 +124,26 @@ body::after {
 .container, .container-fluid {
     position: relative;
     z-index: 10;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.list-group {
+    background: var(--panel-bg) !important;
+    border: 1px solid rgba(0, 212, 255, 0.3) !important;
+    border-radius: 0 !important;
+    clip-path: var(--cut-corner);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-deep);
+}
+
+.list-group-item {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    border: none !important;
+    transition: all var(--transition-fast) !important;
 }
 
 /* CARDS */
@@ -254,7 +274,7 @@ body::after {
     bottom: 0;
     width: 4px;
     background: currentColor;
-    animation: alertPulse 2s ease-in-out infinite;
+    animation: alertPulse 5s ease-in-out infinite;
 }
 
 .alert-primary {
@@ -833,3 +853,31 @@ body::after {
 }
 
 
+/* ============================================
+    SCROLLBAR STYLING
+    ============================================ */
+
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #444 30%, #222 100%);
+    border-radius: 4px;
+    box-shadow: 0 0 6px #222;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #666 30%, #222 100%);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+
+html {
+    scrollbar-width: thin;
+    scrollbar-color: #444 #222;
+}

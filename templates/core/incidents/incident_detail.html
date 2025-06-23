@@ -1,16 +1,80 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container-fluid py-4">
-  <h2>Incident: {{ object.title }}</h2>
-  <p><strong>ID:</strong> {{ object.incident_id }}</p>
-  <p><strong>Description:</strong> {{ object.description }}</p>
-  <p><strong>Status:</strong> {{ object.get_status_display }}</p>
-  <p><strong>Severity:</strong> {{ object.get_severity_display }}</p>
-  <p><strong>Client:</strong> {{ object.client.name }}</p>
-  <p><strong>Incident Manager:</strong> {{ object.incident_manager }}</p>
-  <p><strong>Lead Responder:</strong> {{ object.lead_responder }}</p>
-  <p><strong>Responders:</strong> {{ object.responders.all|join:", " }}</p>
-  <a href="{% url 'core:incident_update' object.pk %}" class="btn btn-warning">Edit</a>
-  <a href="{% url 'core:incident_list' %}" class="btn btn-secondary">Back</a>
+  <div class="mb-3">
+    <h4 class="mb-1">
+      <i class="fa fa-exclamation-triangle text-warning"></i> {{ object.title }}
+    </h4>
+    <small class="text-muted">
+      <i class="fa fa-hashtag"></i> Incident ID: {{ object.incident_id }}
+    </small>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <p class="mb-1"><strong><i class="fa fa-info-circle"></i> Status:</strong> {{ object.get_status_display }}</p>
+      <p class="mb-1"><strong><i class="fa fa-thermometer-half"></i> Severity:</strong> {{ object.get_severity_display }}</p>
+      <p class="mb-1"><strong><i class="fa fa-building"></i> Client:</strong> {{ object.client.name }}</p>
+    </div>
+    <div class="col-md-6">
+      <p class="mb-1"><strong><i class="fa fa-user-tie"></i> Manager:</strong> {{ object.incident_manager }}</p>
+      <p class="mb-1"><strong><i class="fa fa-user-shield"></i> Lead:</strong> {{ object.lead_responder|default:"—" }}</p>
+      <p class="mb-1"><strong><i class="fa fa-users"></i> Responders:</strong> {{ object.responders.all|join:", " }}</p>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <a href="{% url 'core:incident_update' object.pk %}" class="btn btn-warning btn-sm">
+      <i class="fa fa-edit"></i> Edit
+    </a>
+    <a href="{% url 'core:incident_list' %}" class="btn btn-secondary btn-sm">
+      <i class="fa fa-arrow-left"></i> Back
+    </a>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0"><i class="fa fa-archive"></i> Artefacts</h5>
+    <a href="{% url 'core:artefact_create' %}?incident={{ object.pk }}" class="btn btn-sm btn-success">
+      <i class="fa fa-plus"></i> Add Artefacts
+    </a>
+  </div>
+
+  {% if object.artefacts.exists %}
+      <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.88rem;">
+        <thead class="table-light">
+          <tr>
+            <th><i class="fa fa-file-alt"></i> Name</th>
+            <th><i class="fa fa-tag"></i> Type</th>
+            <th><i class="fa fa-user"></i> Uploader</th>
+            <th><i class="fa fa-user-check"></i> Assigned</th>
+            <th><i class="fa fa-calendar-alt"></i> Uploaded</th>
+            <th><i class="fa fa-cogs"></i> Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for artefact in object.artefacts.all %}
+            <tr>
+              <td class="text-break">{{ artefact.name }}</td>
+              <td>{{ artefact.get_artefact_type_display }}</td>
+              <td>{{ artefact.uploaded_by }}</td>
+              <td>{{ artefact.assigned_to|default:"—" }}</td>
+              <td>{{ artefact.uploaded_at|date:"M d, Y H:i" }}</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <a href="{% url 'core:artefact_detail' artefact.pk %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fa fa-eye"></i> View
+                  </a>
+                  <a href="{% url 'core:artefact_delete' artefact.pk %}?next={% url 'core:incident_detail' object.incident_id %}"
+                    class="btn btn-sm btn-outline-danger">
+                    <i class="fa fa-trash"></i> Delete
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+  {% endif %}
 </div>
 {% endblock %}

@@ -1,33 +1,116 @@
 {% extends 'base.html' %}
+{% load static utils crispy_forms_tags %}
+
 {% block title %}Artefact Detail{% endblock %}
-{% load static %}
+
 {% block content %}
 <div class="container-fluid py-3">
-  <div class="row">
-    <!-- Left: Raw log content -->
-    <div class="col-md-7 border-end" style="max-height: 80vh; overflow-y: scroll;">
-      <h4 class="mb-3">{{ artefact.name }} - Logs</h4>
-      <ul class="list-group">
-        {% for record in records %}
-          {% include "core/artefacts/partials/_record_entry.html" %}
-        {% endfor %}
-      </ul>
-    </div>
+  <div class="row" id="split-container">
+    <!-- Left Pane: Notes -->
+    <div id="notes-pane" class="col-md-5 border-end px-3" style="overflow-y: auto;">
+      <h5 class="mb-3">Notes</h5>
 
-    <!-- Right: Notes -->
-    <div class="col-md-5" style="max-height: 80vh; overflow-y: scroll;">
-      <h4 class="mb-3">Notes</h4>
       <form method="post" action="{% url 'core:add_artefact_note' %}">
         {% csrf_token %}
         <input type="hidden" name="artefact_id" value="{{ artefact.id }}">
-        <textarea name="content" rows="4" class="form-control mb-2" placeholder="Add a note..."></textarea>
+        <textarea name="content" rows="4" class="form-control mb-2" placeholder="Add a note using Markdown. You can refer to logs using #record_number."></textarea>
         <button type="submit" class="btn btn-primary btn-sm">Save Note</button>
       </form>
+
       <hr>
       {% for note in notes %}
         {% include "core/artefacts/partials/_note_entry.html" %}
       {% endfor %}
     </div>
+
+    <!-- Drag handle -->
+    <div id="drag-handle" style="width: 5px; cursor: col-resize; background-color: #ddd;"></div>
+
+    <!-- Right Pane: Logs + Filters -->
+    <div id="logs-pane" class="col-md-7 px-3" style="overflow-y: auto;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5>{{ artefact.name }} — Logs</h5>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+          Filter
+        </button>
+      </div>
+
+      <div id="filterCollapse" class="collapse mb-3">
+        <form method="get" class="card card-body">
+          <div id="filter-conditions" class="row g-2">
+            {% for f in applied_filters %}
+              {% with f|split:":" as parts %}
+              <div class="col-md-6 d-flex">
+                <select name="filter" class="form-select form-select-sm me-1">
+                  <option value="contains:{{ parts.1 }}" {% if parts.0 == "contains" %}selected{% endif %}>Contains</option>
+                  <option value="notcontains:{{ parts.1 }}" {% if parts.0 == "notcontains" %}selected{% endif %}>Does not contain</option>
+                </select>
+                <input type="text" name="filter" value="{{ parts.1 }}" class="form-control form-control-sm" placeholder="Text">
+              </div>
+              {% endwith %}
+            {% empty %}
+              <div class="col-md-6 d-flex">
+                <select name="filter" class="form-select form-select-sm me-1">
+                  <option value="contains:">Contains</option>
+                  <option value="notcontains:">Does not contain</option>
+                </select>
+                <input type="text" name="filter" class="form-control form-control-sm" placeholder="Text">
+              </div>
+            {% endfor %}
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-sm btn-primary">Apply Filters</button>
+            <button type="button" onclick="addFilter()" class="btn btn-sm btn-outline-secondary">+ Add Filter</button>
+            <a href="?" class="btn btn-sm btn-link text-danger">Clear</a>
+          </div>
+        </form>
+      </div>
+
+      <ul class="list-group" id="log-list">
+        {% for record in records %}
+          {% include "core/artefacts/partials/_record_entry.html" %}
+        {% endfor %}
+      </ul>
+    </div>
   </div>
 </div>
+
+<!-- Hover preview + splitter -->
+<style>
+  #split-container { display: flex; height: 80vh; }
+  #notes-pane, #logs-pane { overflow-y: auto; }
+</style>
+
+<script>
+function addFilter() {
+  const container = document.getElementById('filter-conditions');
+  const div = document.createElement('div');
+  div.className = "col-md-6 d-flex mt-2";
+  div.innerHTML = `
+    <select name="filter" class="form-select form-select-sm me-1">
+      <option value="contains:">Contains</option>
+      <option value="notcontains:">Does not contain</option>
+    </select>
+    <input type="text" name="filter" class="form-control form-control-sm" placeholder="Text">
+  `;
+  container.appendChild(div);
+}
+
+// Split drag bar
+let isDragging = false;
+const handle = document.getElementById('drag-handle');
+const notesPane = document.getElementById('notes-pane');
+const logsPane = document.getElementById('logs-pane');
+
+handle.addEventListener('mousedown', () => isDragging = true);
+document.addEventListener('mouseup', () => isDragging = false);
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const containerWidth = document.getElementById('split-container').offsetWidth;
+  const leftWidth = e.clientX;
+  const rightWidth = containerWidth - leftWidth - 5;
+  notesPane.style.flex = `0 0 ${leftWidth}px`;
+  logsPane.style.flex = `0 0 ${rightWidth}px`;
+});
+</script>
 {% endblock %}

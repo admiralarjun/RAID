@@ -1,6 +1,7 @@
+# core/models.py
 from django.db import models
 from django.contrib.auth.models import User
-import uuid
+import uuid, re
 
 class UserProfile(models.Model):
     ROLE_CHOICES = [
@@ -14,11 +15,17 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     organization = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=20, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+    def get_avatar_url(self):
+        if self.avatar:
+            return self.avatar.url
+        return "/static/images/default-avatar.png"  # fallback image
 
 
 class Client(models.Model):
@@ -54,7 +61,7 @@ class Incident(models.Model):
         ('low', 'Low'),
     ]
 
-    incident_id = models.CharField(max_length=50, unique=True)
+    incident_id = models.CharField(max_length=50, unique=True, blank=True)
     title = models.CharField(max_length=255)
     description = models.TextField()
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='incidents')
@@ -74,13 +81,30 @@ class Incident(models.Model):
 
     def get_absolute_url(self):
         return f"/incidents/{self.incident_id}/"
+    
+    def save(self, *args, **kwargs):
+        if not self.incident_id and self.client:
+            # 1. Uppercase + replace spaces with underscores
+            name = self.client.name.upper().replace(" ", "_")
+            # 2. Remove non-alphanumeric and underscore characters
+            clean_name = re.sub(r'[^A-Z0-9_]', '', name)
+            # 3. Truncate to max 5 characters (do not pad)
+            prefix = clean_name[:5]
+
+            # 4. Count existing incidents for this client
+            count = Incident.objects.filter(client=self.client).count() + 1
+            suffix = f"{count:04d}"
+
+            self.incident_id = f"{prefix}_{suffix}"
+
+        super().save(*args, **kwargs)
 
 
 class Artefact(models.Model):
     ARTEFACT_TYPES = [
         ('evtx', 'Windows Event Log (EVTX)'),
         ('pcap', 'Packet Capture (PCAP)'),
-        ('sysmon', 'Sysmon Logs'),
+        ('log', 'Logs Files'),
         ('firewall', 'Firewall Logs'),
         ('other', 'Other'),
     ]
@@ -102,9 +126,7 @@ class Artefact(models.Model):
 class LogRecord(models.Model):
     artefact = models.ForeignKey(Artefact, on_delete=models.CASCADE, related_name="records")
     record_index = models.PositiveIntegerField()  # Line or entry number
-    timestamp = models.DateTimeField(null=True, blank=True)
     content = models.TextField()  # Raw or parsed line
-    metadata = models.JSONField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.artefact.name} - Record #{self.record_index}"

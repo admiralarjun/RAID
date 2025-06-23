@@ -9,7 +9,7 @@ class IncidentForm(forms.ModelForm):
     class Meta:
         model = Incident
         fields = [
-            'incident_id', 'title', 'description', 'client',
+            'title', 'description', 'client',
             'incident_manager', 'lead_responder', 'responders',
             'status', 'severity', 'client_can_view_analysis', 'client_can_view_reports'
         ]
@@ -73,7 +73,7 @@ class ClientUpdateForm(forms.ModelForm):
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
-        fields = ['user', 'role', 'organization', 'phone', 'is_active']
+        fields = ['user', 'role', 'avatar', 'organization', 'phone', 'is_active']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -120,7 +120,7 @@ class ArtefactNoteForm(forms.ModelForm):
 class LogRecordForm(forms.ModelForm):
     class Meta:
         model = LogRecord
-        fields = ['artefact', 'record_index', 'timestamp', 'content', 'metadata']
+        fields = ['artefact', 'record_index', 'content']
         widgets = {
             'metadata': forms.Textarea(attrs={'rows': 3}),
         }

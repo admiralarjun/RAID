@@ -1,6 +1,10 @@
-<li class="list-group-item small" id="record-{{ record.id }}">
-  <strong>#{{ record.record_index }}</strong>
-  {% if record.timestamp %}<span class="text-muted">{{ record.timestamp }}</span>{% endif %}
-  <pre class="mb-0">{{ record.content }}</pre>
-  <a href="{% url 'core:log_record_permalink' pk=record.id %}" class="btn btn-link btn-sm">Permalink</a>
+<li class="list-group-item" id="record-{{ record.id }}" data-index="{{ record.record_index }}">
+  <a href="{% url 'core:log_record_permalink' pk=record.id %}" class="btn btn-link btn-sm">
+    <strong>#{{ record.record_index }}</strong> Permalink
+  </a>
+  {% if record.timestamp %}
+    <span class="text-muted small ms-2">{{ record.timestamp }}</span>
+  {% endif %}
+  <span class="text-info small ms-2">{{ record.artefact.name }}</span>
+  <pre class="mb-0 small">{{ record.content }}</pre>
 </li>

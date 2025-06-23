@@ -6,8 +6,10 @@
   <p><strong>{{ artefact.name }}</strong> ({{ artefact.get_artefact_type_display }})</p>
   <form method="post">
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.GET.next }}">
     <button type="submit" class="btn btn-danger">Delete</button>
-    <a href="{% url 'core:artefact_detail' pk=artefact.pk %}" class="btn btn-secondary">Cancel</a>
+    <a href="{{ request.GET.next|default:request.META.HTTP_REFERER|default:'/' }}" class="btn btn-secondary">Cancel</a>
   </form>
+
 </div>
 {% endblock %}
