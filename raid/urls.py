@@ -13,5 +13,5 @@ urlpatterns = [
     path('', include('core.urls')),
 
     # Analysis App
-    # path('analysis/', include('analysis.urls')),
+    path('analysis/', include('analysis.urls')),
 ]

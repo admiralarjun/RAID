@@ -1,4 +1,3 @@
-# core/views.py
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import get_object_or_404, render
@@ -10,8 +9,9 @@ from .models import *
 from .forms import *
 from django.views.generic.edit import DeleteView
 from .parser import parse_artefact_file
-from .utils import infer_artefact_type
 from django.db.models import Q
+from .utils import infer_artefact_type
+
 
 # === Dashboard View ===
 
@@ -100,7 +100,7 @@ class UserProfileListView(LoginRequiredMixin, ListView):
 class UserProfileUpdateView(LoginRequiredMixin, UpdateView):
     model = UserProfile
     form_class = UserProfileForm
-    template_name = "core/users/user_profile_form.html"
+    template_name = "core/users/user_profileform.html"
     success_url = reverse_lazy("core:profile_list")
 
 

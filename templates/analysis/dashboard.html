@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Resume -->
+    {% if resume_artefact %}
+    <div class="alert alert-info">
+        Resume your last analysis on 
+        <a href="{% url 'analysis:artefact_result' resume_artefact.id %}">
+            {{ resume_artefact.name }}
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Artefacts Section -->
+    <div class="mb-5">
+        <h4>Your Assigned Artefacts</h4>
+        {% if artefacts %}
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Incident</th>
+                        <th>Records</th>
+                        <th>Last Updated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for artefact in artefacts %}
+                    <tr>
+                        <td>{{ artefact.name }}</td>
+                        <td>{{ artefact.incident.title }}</td>
+                        <td>{{ artefact.records.count }}</td>
+                        <td>{{ artefact.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'analysis:artefact_result' artefact.id %}" class="btn btn-sm btn-primary">View Analysis</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No artefacts assigned to you.</p>
+        {% endif %}
+    </div>
+
+    <!-- Recent Matches -->
+    <div class="mb-5">
+        <h4>Recent Matches</h4>
+        <ul class="list-group list-group-flush">
+            {% for match in recent_matches %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ match.rule.name }}</strong> matched on 
+                    <a href="{% url 'analysis:artefact_result' match.artefact.id %}">{{ match.artefact.name }}</a>
+                    <br>
+                    <small>{{ match.matched_at|naturaltime }}</small>
+                </div>
+            </li>
+            {% empty %}
+            <li class="list-group-item">No recent matches.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Incidents Summary -->
+    <div class="mb-5">
+        <h4>Incidents You're Handling</h4>
+        {% if incidents %}
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Artefacts</th>
+                        <th>Responders</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for incident in incidents %}
+                    <tr>
+                        <td>{{ incident.title }}</td>
+                        <td>{{ incident.artefacts.count }}</td>
+                        <td>{{ incident.responders.all|join:", " }}</td>
+                        <td>
+                            <a href="{% url 'analysis:results_by_incident' %}" class="btn btn-sm btn-secondary">View Incident</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">You're not assigned to any incidents.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

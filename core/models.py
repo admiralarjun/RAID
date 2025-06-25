@@ -119,6 +119,9 @@ class Artefact(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     parsed = models.BooleanField(default=False)
 
+    def get_artefact_id(self):
+        return str(self.id)
+
     def __str__(self):
         return f"{self.name} ({self.artefact_type})"
     

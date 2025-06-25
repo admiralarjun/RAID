@@ -1,0 +1,283 @@
+<!-- templates/analysis/artefact_result.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid my-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0">
+        <i class="fas fa-file-alt me-2 text-primary"></i>Analysis Results
+      </h2>
+      <p class="text-muted mb-0">{{ artefact.name }} — {{ artefact.incident.title }}</p>
+    </div>
+    <div>
+      <a href="{% url 'analysis:start' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Back to Analysis
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="card mb-4">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">Summary</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-3">
+          <div class="d-flex align-items-center">
+            <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-layer-group text-primary fa-2x"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Total Matches</h6>
+              <p class="mb-0 h4">{{ matches|length }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="d-flex align-items-center">
+            <div class="bg-info bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-project-diagram text-info fa-2x"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Unique Rules</h6>
+              <p class="mb-0 h4">{{ matches|length|default:"0" }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="d-flex align-items-center">
+            <div class="bg-success bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-database text-success fa-2x"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Records Analyzed</h6>
+              <p class="mb-0 h4">{{ artefact.records.count }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="d-flex align-items-center">
+            <div class="bg-warning bg-opacity-10 p-3 rounded me-3">
+              <i class="fas fa-clock text-warning fa-2x"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Last Analyzed</h6>
+              <p class="mb-0">{{ artefact.updated_at|date:"Y-m-d H:i" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Card -->
+  <div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Filters</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">
+        <i class="fas fa-undo me-1"></i> Reset
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Search</label>
+          <input type="text" class="form-control" id="search-input" placeholder="Search in matches...">
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Severity</label>
+          <select class="form-select" id="severity-filter">
+            <option value="">All Severity</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+            <option value="info">Info</option>
+          </select>
+        </div>
+        <div class="col-md-3 mb-3">
+          <label class="form-label">Match Status</label>
+          <select class="form-select" id="status-filter">
+            <option value="">All Status</option>
+            <option value="passed">Passed</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Accordion -->
+  {% regroup matches by rule as grouped_matches %}
+  <div class="accordion" id="results-accordion">
+    {% for group in grouped_matches %}
+    <div class="accordion-item mb-3 match-group" 
+         data-severity="{{ group.grouper.severity|lower }}"
+         data-rule="{{ group.grouper.name|lower }}"
+         data-description="{{ group.grouper.description|lower }}">
+      <h2 class="accordion-header">
+        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" 
+                type="button" data-bs-toggle="collapse" 
+                data-bs-target="#group-{{ group.grouper.id }}">
+          <div class="d-flex align-items-center w-100">
+            <span class="badge {% if group.grouper.severity == 'critical' %}bg-danger{% elif group.grouper.severity == 'high' %}bg-warning text-dark{% elif group.grouper.severity == 'medium' %}bg-primary{% elif group.grouper.severity == 'low' %}bg-info text-dark{% else %}bg-secondary{% endif %} me-3">
+              {{ group.grouper.get_severity_display }}
+            </span>
+            <div class="flex-grow-1">
+              <strong>{{ group.grouper.name }}</strong>
+              <div class="small text-muted">{{ group.grouper.description|truncatechars:60 }}</div>
+            </div>
+            <span class="badge bg-dark rounded-pill ms-2">{{ group.list|length }}</span>
+          </div>
+        </button>
+      </h2>
+      <div id="group-{{ group.grouper.id }}" 
+           class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+           data-bs-parent="#results-accordion">
+        <div class="accordion-body p-0">
+          <div class="list-group list-group-flush">
+            {% for match in group.list %}
+            <div class="list-group-item match-item" 
+                 data-status="{% for logic in match.logic_evaluations.all %}{{ logic.passed|yesno:'passed,failed' }} {% endfor %}">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <strong>Matched at:</strong> {{ match.matched_at|date:"Y-m-d H:i" }}
+                </div>
+                <div>
+                  <span class="badge bg-light text-dark border">
+                    Record #{{ match.log_record.record_index }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <strong>Log Content:</strong>
+                <div class="card bg-light mt-2">
+                  <div class="card-body p-2">
+                    <pre class="mb-0">{{ match.log_record.content }}</pre>
+                  </div>
+                </div>
+              </div>
+              
+              <h6 class="mb-2">Logic Evaluations:</h6>
+              <div class="row">
+                {% for logic in match.logic_evaluations.all %}
+                <div class="col-md-6 mb-2">
+                  <div class="card {% if logic.passed %}border-success{% else %}border-danger{% endif %}">
+                    <div class="card-header py-2 {% if logic.passed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <strong>{{ logic.logic_unit.name }}</strong>
+                        <span class="badge bg-white text-{% if logic.passed %}success{% else %}danger{% endif %}">
+                          {{ logic.passed|yesno:"Passed,Failed" }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <div class="mb-1">
+                        <strong>Method:</strong> <code>{{ logic.logic_unit.method }}</code>
+                      </div>
+                      <div class="mb-1">
+                        <strong>Pattern:</strong> <code>{{ logic.logic_unit.pattern }}</code>
+                      </div>
+                      {% if logic.logic_unit.negate %}
+                      <div class="mb-1">
+                        <span class="badge bg-warning text-dark">Negated</span>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+      <i class="fas fa-info-circle me-2"></i>No matches found for this artefact.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize filters
+  const searchInput = document.getElementById('search-input');
+  const severityFilter = document.getElementById('severity-filter');
+  const statusFilter = document.getElementById('status-filter');
+  
+  function applyFilters() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const severityValue = severityFilter.value.toLowerCase();
+    const statusValue = statusFilter.value.toLowerCase();
+    
+    document.querySelectorAll('.match-group').forEach(group => {
+      const groupSeverity = group.dataset.severity;
+      const groupRule = group.dataset.rule;
+      const groupDesc = group.dataset.description;
+      
+      // Filter by severity
+      const matchesSeverity = severityValue === '' || 
+        groupSeverity.includes(severityValue);
+      
+      // Filter by search term
+      const matchesSearch = searchTerm === '' || 
+        groupRule.includes(searchTerm) || 
+        groupDesc.includes(searchTerm);
+      
+      // Filter by status (needs to check individual items)
+      let hasVisibleItems = false;
+      
+      group.querySelectorAll('.match-item').forEach(item => {
+        const itemStatus = item.dataset.status;
+        const matchesStatus = statusValue === '' || 
+          itemStatus.includes(statusValue);
+        
+        const isVisible = matchesSeverity && matchesSearch && matchesStatus;
+        item.style.display = isVisible ? '' : 'none';
+        
+        if (isVisible) hasVisibleItems = true;
+      });
+      
+      // Show/hide entire group based on filters
+      const groupHeader = group.querySelector('.accordion-header');
+      const groupCollapse = group.querySelector('.accordion-collapse');
+      
+      if (hasVisibleItems) {
+        group.style.display = '';
+        
+        // If all items are hidden in an open group, collapse it
+        if (groupCollapse.classList.contains('show') && 
+            group.querySelectorAll('.match-item[style="display: none;"]').length === 
+            group.querySelectorAll('.match-item').length) {
+          const bsCollapse = new bootstrap.Collapse(groupCollapse);
+          bsCollapse.hide();
+        }
+      } else {
+        group.style.display = 'none';
+      }
+    });
+  }
+  
+  // Event listeners for filters
+  searchInput.addEventListener('input', applyFilters);
+  severityFilter.addEventListener('change', applyFilters);
+  statusFilter.addEventListener('change', applyFilters);
+  
+  // Reset filters
+  window.resetFilters = function() {
+    searchInput.value = '';
+    severityFilter.value = '';
+    statusFilter.value = '';
+    applyFilters();
+  };
+});
+</script>
+{% endblock %}

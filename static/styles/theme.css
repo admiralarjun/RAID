@@ -5,6 +5,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
 
 :root {
+
     /* Neon Color Palette */
     --neon-blue: #00d4ff;
     --neon-cyan: #00ffff;
@@ -65,6 +66,9 @@
 /* ============================================
    BASE OVERRIDES
    ============================================ */
+.modal-backdrop {
+    z-index: 0 !important;
+}
 
 body {
     font-family: 'Rajdhani', sans-serif !important;
@@ -141,9 +145,90 @@ body::after {
 
 .list-group-item {
     background: transparent !important;
-    color: var(--text-secondary) !important;
+    color: var(--text-primary) !important;
     border: none !important;
     transition: all var(--transition-fast) !important;
+}
+
+/* ACCORDION */
+.accordion {
+    background: none !important;
+    border: none !important;
+}
+
+.accordion-item {
+    background: var(--panel-bg) !important;
+    border: 1px solid rgba(0, 212, 255, 0.3) !important;
+    border-radius: 0 !important;
+    clip-path: var(--cut-corner);
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    transition: box-shadow var(--transition-fast);
+}
+
+.accordion-item:not(:last-child) {
+    margin-bottom: 1.5rem;
+}
+
+.accordion-header {
+    background: none !important;
+    border: none !important;
+}
+
+.accordion-button {
+    background: rgba(0, 212, 255, 0.08) !important;
+    color: var(--text-accent) !important;
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    clip-path: var(--cut-corner);
+    box-shadow: none !important;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    padding: 1.25rem 1.5rem;
+    position: relative;
+}
+
+.accordion-button::after {
+    background-image: none;
+    content: '';
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid var(--neon-blue);
+    border-radius: 3px;
+    margin-left: auto;
+    transition: transform var(--transition-fast);
+    display: inline-block;
+    position: relative;
+}
+
+.accordion-button:not(.collapsed)::after {
+    transform: rotate(90deg);
+    border-color: var(--neon-green);
+}
+
+.accordion-button:focus {
+    box-shadow: var(--glow-primary) !important;
+    border-color: var(--neon-blue) !important;
+    outline: none !important;
+}
+
+.accordion-button:hover {
+    background: rgba(0, 212, 255, 0.15) !important;
+    color: var(--neon-blue) !important;
+}
+
+.accordion-body {
+    background: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid rgba(0, 212, 255, 0.15);
+    font-family: 'Rajdhani', sans-serif !important;
+    font-size: 1.05rem;
+    line-height: 1.7;
 }
 
 /* CARDS */
