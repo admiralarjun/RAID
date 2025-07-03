@@ -1,4 +1,8 @@
-# RAID App
+# R.A.I.D
+
+Respond, Assess, Investigate, Defend
+
+Powering Enterprise Incident Response from Detection to Defense.
 
 This project uses Docker Compose for easy setup, building, and deployment.
 
