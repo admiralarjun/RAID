@@ -49,7 +49,7 @@
                 <!-- Artefact Selection Card -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Select Artefacts</h5>
+                        <h5 class="mb-0">Select Artefact</h5>
                         <div class="d-flex gap-2">
                             <input type="text" class="form-control form-control-sm" placeholder="Search artefacts..." 
                                    id="artefact-search" style="width: 200px;">
@@ -69,7 +69,6 @@
                             <table class="table table-hover mb-0" id="artefact-table">
                                 <thead>
                                     <tr>
-                                        <th width="40px"><input type="checkbox" class="form-check-input" id="select-all-checkbox"></th>
                                         <th>Artefact</th>
                                         <th>Incident</th>
                                         <th>Type</th>
@@ -80,11 +79,10 @@
                                 <tbody>
                                     {% for artefact in artefacts %}
                                     <tr class="artefact-row" data-incident="{{ artefact.incident.id }}">
+                                    
                                         <td>
                                             <input type="checkbox" class="form-check-input artefact-checkbox" 
                                                    name="artefact_ids" value="{{ artefact.id }}">
-                                        </td>
-                                        <td>
                                             <strong>{{ artefact.name }}</strong>
                                             {% if artefact.description %}
                                             <p class="small text-muted mb-0">{{ artefact.description|truncatechars:50 }}</p>

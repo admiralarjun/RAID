@@ -11,6 +11,7 @@ from django.views.generic.edit import DeleteView
 from .parser import parse_artefact_file
 from django.db.models import Q
 from .utils import infer_artefact_type
+from django.shortcuts import redirect
 
 
 # === Dashboard View ===
@@ -240,8 +241,4 @@ class AddArtefactNoteView(LoginRequiredMixin, View):
             author=request.user,
             content=content,
         )
-        return JsonResponse({
-            "status": "success",
-            "note_id": note.id,
-            "message": "Note added successfully"
-        })
+        return redirect("core:artefact_detail", pk=artefact_id)

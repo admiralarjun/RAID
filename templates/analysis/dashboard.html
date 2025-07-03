@@ -1,103 +1,368 @@
 {% extends "base.html" %}
 {% load humanize %}
-{% block content %}
-<div class="container-fluid mt-4">
 
-    <!-- Resume -->
+{% block title %}Forensic Analysis Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-1">Forensic Analysis Dashboard</h2>
+            <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}</p>
+        </div>
+    </div>
+
+    <!-- Resume Analysis -->
     {% if resume_artefact %}
-    <div class="alert alert-info">
-        Resume your last analysis on 
-        <a href="{% url 'analysis:artefact_result' resume_artefact.id %}">
-            {{ resume_artefact.name }}
-        </a>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info alert-dismissible">
+                <i class="fas fa-play-circle me-2"></i>
+                <strong>Resume Analysis:</strong> Continue working on 
+                <a href="{% url 'analysis:artefact_result' resume_artefact.pk %}" class="alert-link fw-bold">
+                    {{ resume_artefact.name }}
+                </a>
+                from {{ resume_artefact.incident.title }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        </div>
     </div>
     {% endif %}
 
-    <!-- Artefacts Section -->
-    <div class="mb-5">
-        <h4>Your Assigned Artefacts</h4>
-        {% if artefacts %}
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Incident</th>
-                        <th>Records</th>
-                        <th>Last Updated</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for artefact in artefacts %}
-                    <tr>
-                        <td>{{ artefact.name }}</td>
-                        <td>{{ artefact.incident.title }}</td>
-                        <td>{{ artefact.records.count }}</td>
-                        <td>{{ artefact.updated_at|date:"Y-m-d H:i" }}</td>
-                        <td>
-                            <a href="{% url 'analysis:artefact_result' artefact.id %}" class="btn btn-sm btn-primary">View Analysis</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-muted">No artefacts assigned to you.</p>
-        {% endif %}
-    </div>
-
-    <!-- Recent Matches -->
-    <div class="mb-5">
-        <h4>Recent Matches</h4>
-        <ul class="list-group list-group-flush">
-            {% for match in recent_matches %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>{{ match.rule.name }}</strong> matched on 
-                    <a href="{% url 'analysis:artefact_result' match.artefact.id %}">{{ match.artefact.name }}</a>
-                    <br>
-                    <small>{{ match.matched_at|naturaltime }}</small>
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-sm-6 col-lg-3 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0">{{ stats.total_artefacts }}</h3>
+                            <small>Assigned Artefacts</small>
+                        </div>
+                        <i class="fas fa-folder-open fa-2x opacity-75"></i>
+                    </div>
                 </div>
-            </li>
-            {% empty %}
-            <li class="list-group-item">No recent matches.</li>
-            {% endfor %}
-        </ul>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0">{{ stats.active_incidents }}</h3>
+                            <small>Active Incidents</small>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3 mb-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0">{{ stats.total_matches }}</h3>
+                            <small>Total Matches</small>
+                        </div>
+                        <i class="fas fa-search fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-lg-3 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0">{{ stats.matches_today }}</h3>
+                            <small>Matches Today</small>
+                        </div>
+                        <i class="fas fa-calendar-day fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Incidents Summary -->
-    <div class="mb-5">
-        <h4>Incidents You're Handling</h4>
-        {% if incidents %}
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Artefacts</th>
-                        <th>Responders</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for incident in incidents %}
-                    <tr>
-                        <td>{{ incident.title }}</td>
-                        <td>{{ incident.artefacts.count }}</td>
-                        <td>{{ incident.responders.all|join:", " }}</td>
-                        <td>
-                            <a href="{% url 'analysis:results_by_incident' %}" class="btn btn-sm btn-secondary">View Incident</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            
+            <!-- Priority Artefacts Alert -->
+            {% if priority_artefacts %}
+            <div class="card border-warning mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>High Priority Artefacts
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row">
+                        {% for artefact in priority_artefacts %}
+                        <div class="col-md-6 mb-2">
+                            <a href="{% url 'analysis:artefact_result' artefact.pk %}" class="text-decoration-none">
+                                <strong>{{ artefact.name }}</strong>
+                            </a>
+                            <span class="badge bg-danger ms-2">{{ artefact.recent_matches }} recent</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Assigned Artefacts -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-folder-open me-2"></i>Your Assigned Artefacts
+                    </h5>
+                    <div>
+                        <span class="badge bg-primary me-2">{{ artefacts.count }}</span>
+                        <a href="{% url 'analysis:start' %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-plus me-1"></i>New Analysis
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if artefacts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table">
+                                <tr>
+                                    <th>Artefact</th>
+                                    <th>Incident</th>
+                                    <th>Records</th>
+                                    <th>Matches</th>
+                                    <th>Recent</th>
+                                    <th>Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for artefact in artefacts %}
+                                <tr {% if artefact.recent_matches > 5 %}class=""{% endif %}>
+                                    <td>
+                                        <div class="d-flex">
+                                            <strong>{{ artefact.name|truncatechars:30 }}</strong>
+                                            {% if artefact.recent_matches > 5 %}
+                                            <span class="badge bg-danger ms-2">Hot</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'analysis:results_by_incident' %}" class="text-decoration-none">
+                                            {{ artefact.incident.title|truncatechars:25 }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ artefact.records.count|intcomma }}</span>
+                                    </td>
+                                    <td>
+                                        {% if artefact.match_count > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ artefact.match_count }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if artefact.recent_matches > 0 %}
+                                        <span class="badge bg-info">{{ artefact.recent_matches }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ artefact.updated_at|naturaltime }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'analysis:artefact_result' artefact.pk %}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-microscope me-1"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No artefacts assigned</h5>
+                        <p class="text-muted">Start a new analysis to begin working with artefacts.</p>
+                        <a href="{% url 'analysis:start' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Start Analysis
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Active Incidents -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>Your Active Incidents
+                    </h5>
+                    <span class="badge bg-success">{{ incidents.count }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if incidents %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table">
+                                <tr>
+                                    <th>Incident</th>
+                                    <th class="text-center">Artefacts</th>
+                                    <th class="text-center">Total Matches</th>
+                                    <th>Team</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for incident in incidents %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>{{ incident.title|truncatechars:40 }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ incident.created_at|date:"M d, Y" }}</small>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-secondary">{{ incident.artefact_count }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if incident.total_matches > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ incident.total_matches }}</span>
+                                        {% else %}
+                                        <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for responder in incident.responders.all %}
+                                            <span class="badge  text-dark">
+                                                {{ responder.get_full_name|default:responder.username|truncatechars:15 }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'analysis:results_by_incident' %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i>View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">You're not assigned to any incidents.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
-        {% else %}
-        <p class="text-muted">You're not assigned to any incidents.</p>
-        {% endif %}
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            
+            <!-- Most Active Rules -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Most Active Rules
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if top_rules %}
+                    <div class="list-group list-group-flush">
+                        {% for rule in top_rules %}
+                        <div class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">{{ rule.name|truncatechars:25 }}</div>
+                                {% if rule.tags.exists %}
+                                <div class="mt-1">
+                                    {% for tag in rule.tags.all|slice:":3" %}
+                                    <span class="badge border me-1">{{ tag.name }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ rule.match_count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <small class="text-muted">No rule matches yet</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Matches -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-search me-2"></i>Recent Matches
+                    </h6>
+                    {% if recent_matches.count > 8 %}
+                    <small class="text-muted">Showing latest 8</small>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_matches %}
+                    <div class="list-group list-group-flush">
+                        {% for match in recent_matches|slice:":8" %}
+                        <div class="list-group-item border-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold">{{ match.rule.name|truncatechars:30 }}</div>
+                                    <div class="small text-muted">
+                                        on <a href="{% url 'analysis:artefact_result' match.artefact.pk %}" 
+                                              class="text-decoration-none">
+                                            {{ match.artefact.name|truncatechars:20 }}
+                                        </a>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <i class="fas fa-clock me-1"></i>{{ match.matched_at|naturaltime }}
+                                    </div>
+                                </div>
+                                <span class="badge  text-dark">
+                                    #{{ match.log_record.record_index }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-search fa-2x text-muted mb-2"></i>
+                        <div class="small text-muted">No recent matches</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Auto-refresh for real-time updates -->
+<script>
+// Simple auto-refresh every 5 minutes for dashboard stats
+setTimeout(() => location.reload(), 300000);
+</script>
 {% endblock %}

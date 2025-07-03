@@ -1,7 +1,10 @@
 <!-- templates/analysis/artefact_result.html -->
 {% extends "base.html" %}
+{% load widget_tweaks %}
+
 {% block content %}
 <div class="container-fluid my-4">
+  <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h2 class="mb-0">
@@ -16,267 +19,173 @@
     </div>
   </div>
 
-  <!-- Summary Card -->
-  <div class="card mb-4">
-    <div class="card-header bg-light">
-      <h5 class="mb-0">Summary</h5>
+  <!-- Summary Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <i class="fas fa-layer-group text-primary fa-2x mb-2"></i>
+          <h4 class="mb-0">{{ total_matches }}</h4>
+          <small class="text-muted">Total Matches</small>
+        </div>
+      </div>
     </div>
-    <div class="card-body">
-      <div class="row">
-        <div class="col-md-3">
-          <div class="d-flex align-items-center">
-            <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
-              <i class="fas fa-layer-group text-primary fa-2x"></i>
-            </div>
-            <div>
-              <h6 class="mb-0">Total Matches</h6>
-              <p class="mb-0 h4">{{ matches|length }}</p>
-            </div>
-          </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <i class="fas fa-project-diagram text-info fa-2x mb-2"></i>
+          <h4 class="mb-0">{{ unique_rules_count }}</h4>
+          <small class="text-muted">Unique Rules</small>
         </div>
-        <div class="col-md-3">
-          <div class="d-flex align-items-center">
-            <div class="bg-info bg-opacity-10 p-3 rounded me-3">
-              <i class="fas fa-project-diagram text-info fa-2x"></i>
-            </div>
-            <div>
-              <h6 class="mb-0">Unique Rules</h6>
-              <p class="mb-0 h4">{{ matches|length|default:"0" }}</p>
-            </div>
-          </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <i class="fas fa-check text-success fa-2x mb-2"></i>
+          <h4 class="mb-0">{{ status_counts.passed }}</h4>
+          <small class="text-muted">Passed</small>
         </div>
-        <div class="col-md-3">
-          <div class="d-flex align-items-center">
-            <div class="bg-success bg-opacity-10 p-3 rounded me-3">
-              <i class="fas fa-database text-success fa-2x"></i>
-            </div>
-            <div>
-              <h6 class="mb-0">Records Analyzed</h6>
-              <p class="mb-0 h4">{{ artefact.records.count }}</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="d-flex align-items-center">
-            <div class="bg-warning bg-opacity-10 p-3 rounded me-3">
-              <i class="fas fa-clock text-warning fa-2x"></i>
-            </div>
-            <div>
-              <h6 class="mb-0">Last Analyzed</h6>
-              <p class="mb-0">{{ artefact.updated_at|date:"Y-m-d H:i" }}</p>
-            </div>
-          </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <i class="fas fa-times text-danger fa-2x mb-2"></i>
+          <h4 class="mb-0">{{ status_counts.failed }}</h4>
+          <small class="text-muted">Failed</small>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Filters Card -->
+  <!-- Filters Form -->
   <div class="card mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">Filters</h5>
-      <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">
-        <i class="fas fa-undo me-1"></i> Reset
-      </button>
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-filter me-2"></i>Filters
+      </h5>
     </div>
     <div class="card-body">
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">Search</label>
-          <input type="text" class="form-control" id="search-input" placeholder="Search in matches...">
+      <form method="get" id="filter-form">
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Search</label>
+            <input type="text" class="form-control" name="search" 
+                   value="{{ current_search }}" 
+                   placeholder="Search rules, descriptions, log content..."
+                   onchange="this.form.submit()">
+          </div>
+          <div class="col-md-2 mb-3">
+            <label class="form-label">Status</label>
+            <select class="form-select" name="status" onchange="this.form.submit()">
+              <option value="">All Status</option>
+              <option value="passed" {% if current_status == 'passed' %}selected{% endif %}>Passed</option>
+              <option value="failed" {% if current_status == 'failed' %}selected{% endif %}>Failed</option>
+            </select>
+          </div>
+          <div class="col-md-2 mb-3">
+            <label class="form-label">Tag</label>
+            <select class="form-select" name="tag" onchange="this.form.submit()">
+              <option value="">All Tags</option>
+              {% for tag in available_tags %}
+              <option value="{{ tag }}" {% if current_tag == tag %}selected{% endif %}>{{ tag }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 mb-3">
+            <label class="form-label">MITRE</label>
+            <select class="form-select" name="mitre" onchange="this.form.submit()">
+              <option value="">All Techniques</option>
+              {% for technique_id, technique_name, technique_description in available_techniques %}
+              <option value="{{ technique_id }}" {% if current_mitre == technique_id %}selected{% endif %} title="{{ technique_description }}">{{ technique_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 mb-3">
+            <label class="form-label">View</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="expand_all" value="1" 
+                     {% if expand_all %}checked{% endif %} onchange="this.form.submit()">
+              <label class="form-check-label">Expand All</label>
+            </div>
+          </div>
         </div>
-        <div class="col-md-3 mb-3">
-          <label class="form-label">Severity</label>
-          <select class="form-select" id="severity-filter">
-            <option value="">All Severity</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-            <option value="info">Info</option>
-          </select>
+        <div class="row">
+          <div class="col-auto">
+            <a href="{% url 'analysis:artefact_result' artefact.pk %}" class="btn btn-outline-secondary btn-sm">
+              <i class="fas fa-undo me-1"></i> Clear Filters
+            </a>
+          </div>
         </div>
-        <div class="col-md-3 mb-3">
-          <label class="form-label">Match Status</label>
-          <select class="form-select" id="status-filter">
-            <option value="">All Status</option>
-            <option value="passed">Passed</option>
-            <option value="failed">Failed</option>
-          </select>
-        </div>
-      </div>
+      </form>
     </div>
   </div>
 
-  <!-- Results Accordion -->
-  {% regroup matches by rule as grouped_matches %}
-  <div class="accordion" id="results-accordion">
-    {% for group in grouped_matches %}
-    <div class="accordion-item mb-3 match-group" 
-         data-severity="{{ group.grouper.severity|lower }}"
-         data-rule="{{ group.grouper.name|lower }}"
-         data-description="{{ group.grouper.description|lower }}">
-      <h2 class="accordion-header">
-        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" 
-                type="button" data-bs-toggle="collapse" 
-                data-bs-target="#group-{{ group.grouper.id }}">
-          <div class="d-flex align-items-center w-100">
-            <span class="badge {% if group.grouper.severity == 'critical' %}bg-danger{% elif group.grouper.severity == 'high' %}bg-warning text-dark{% elif group.grouper.severity == 'medium' %}bg-primary{% elif group.grouper.severity == 'low' %}bg-info text-dark{% else %}bg-secondary{% endif %} me-3">
-              {{ group.grouper.get_severity_display }}
-            </span>
-            <div class="flex-grow-1">
-              <strong>{{ group.grouper.name }}</strong>
-              <div class="small text-muted">{{ group.grouper.description|truncatechars:60 }}</div>
-            </div>
-            <span class="badge bg-dark rounded-pill ms-2">{{ group.list|length }}</span>
-          </div>
-        </button>
-      </h2>
-      <div id="group-{{ group.grouper.id }}" 
-           class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
-           data-bs-parent="#results-accordion">
-        <div class="accordion-body p-0">
-          <div class="list-group list-group-flush">
-            {% for match in group.list %}
-            <div class="list-group-item match-item" 
-                 data-status="{% for logic in match.logic_evaluations.all %}{{ logic.passed|yesno:'passed,failed' }} {% endfor %}">
-              <div class="d-flex justify-content-between align-items-start mb-2">
-                <div>
-                  <strong>Matched at:</strong> {{ match.matched_at|date:"Y-m-d H:i" }}
-                </div>
-                <div>
-                  <span class="badge bg-light text-dark border">
-                    Record #{{ match.log_record.record_index }}
-                  </span>
-                </div>
-              </div>
-              
-              <div class="mb-3">
-                <strong>Log Content:</strong>
-                <div class="card bg-light mt-2">
-                  <div class="card-body p-2">
-                    <pre class="mb-0">{{ match.log_record.content }}</pre>
-                  </div>
-                </div>
-              </div>
-              
-              <h6 class="mb-2">Logic Evaluations:</h6>
-              <div class="row">
-                {% for logic in match.logic_evaluations.all %}
-                <div class="col-md-6 mb-2">
-                  <div class="card {% if logic.passed %}border-success{% else %}border-danger{% endif %}">
-                    <div class="card-header py-2 {% if logic.passed %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <strong>{{ logic.logic_unit.name }}</strong>
-                        <span class="badge bg-white text-{% if logic.passed %}success{% else %}danger{% endif %}">
-                          {{ logic.passed|yesno:"Passed,Failed" }}
-                        </span>
-                      </div>
-                    </div>
-                    <div class="card-body">
-                      <div class="mb-1">
-                        <strong>Method:</strong> <code>{{ logic.logic_unit.method }}</code>
-                      </div>
-                      <div class="mb-1">
-                        <strong>Pattern:</strong> <code>{{ logic.logic_unit.pattern }}</code>
-                      </div>
-                      {% if logic.logic_unit.negate %}
-                      <div class="mb-1">
-                        <span class="badge bg-warning text-dark">Negated</span>
-                      </div>
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
-    {% empty %}
-    <div class="alert alert-info">
-      <i class="fas fa-info-circle me-2"></i>No matches found for this artefact.
-    </div>
-    {% endfor %}
-  </div>
+  <!-- Results -->
+  {% include 'analysis/partials/matches_accordion.html' %}
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <nav aria-label="Results pagination">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}{% if current_mitre %}&mitre={{ current_mitre }}{% endif %}{% if expand_all %}&expand_all=1{% endif %}">Previous</a>
+        </li>
+      {% endif %}
+      
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+          </li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}{% if current_mitre %}&mitre={{ current_mitre }}{% endif %}{% if expand_all %}&expand_all=1{% endif %}">{{ num }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+      
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}{% if current_mitre %}&mitre={{ current_mitre }}{% endif %}{% if expand_all %}&expand_all=1{% endif %}">Next</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+// Minimal JavaScript - only for essential UX improvements
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize filters
-  const searchInput = document.getElementById('search-input');
-  const severityFilter = document.getElementById('severity-filter');
-  const statusFilter = document.getElementById('status-filter');
+  // Auto-submit form after short delay when typing in search
+  const searchInput = document.querySelector('input[name="search"]');
+  let searchTimeout;
   
-  function applyFilters() {
-    const searchTerm = searchInput.value.toLowerCase();
-    const severityValue = severityFilter.value.toLowerCase();
-    const statusValue = statusFilter.value.toLowerCase();
-    
-    document.querySelectorAll('.match-group').forEach(group => {
-      const groupSeverity = group.dataset.severity;
-      const groupRule = group.dataset.rule;
-      const groupDesc = group.dataset.description;
-      
-      // Filter by severity
-      const matchesSeverity = severityValue === '' || 
-        groupSeverity.includes(severityValue);
-      
-      // Filter by search term
-      const matchesSearch = searchTerm === '' || 
-        groupRule.includes(searchTerm) || 
-        groupDesc.includes(searchTerm);
-      
-      // Filter by status (needs to check individual items)
-      let hasVisibleItems = false;
-      
-      group.querySelectorAll('.match-item').forEach(item => {
-        const itemStatus = item.dataset.status;
-        const matchesStatus = statusValue === '' || 
-          itemStatus.includes(statusValue);
-        
-        const isVisible = matchesSeverity && matchesSearch && matchesStatus;
-        item.style.display = isVisible ? '' : 'none';
-        
-        if (isVisible) hasVisibleItems = true;
-      });
-      
-      // Show/hide entire group based on filters
-      const groupHeader = group.querySelector('.accordion-header');
-      const groupCollapse = group.querySelector('.accordion-collapse');
-      
-      if (hasVisibleItems) {
-        group.style.display = '';
-        
-        // If all items are hidden in an open group, collapse it
-        if (groupCollapse.classList.contains('show') && 
-            group.querySelectorAll('.match-item[style="display: none;"]').length === 
-            group.querySelectorAll('.match-item').length) {
-          const bsCollapse = new bootstrap.Collapse(groupCollapse);
-          bsCollapse.hide();
-        }
-      } else {
-        group.style.display = 'none';
-      }
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        this.form.submit();
+      }, 800); // Wait 800ms after user stops typing
     });
   }
   
-  // Event listeners for filters
-  searchInput.addEventListener('input', applyFilters);
-  severityFilter.addEventListener('change', applyFilters);
-  statusFilter.addEventListener('change', applyFilters);
-  
-  // Reset filters
-  window.resetFilters = function() {
-    searchInput.value = '';
-    severityFilter.value = '';
-    statusFilter.value = '';
-    applyFilters();
+  // Copy functionality
+  window.copyContent = function(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      // Simple toast
+      const toast = document.createElement('div');
+      toast.className = 'position-fixed top-0 end-0 m-3 alert alert-success alert-dismissible fade show';
+      toast.style.zIndex = '9999';
+      toast.innerHTML = 'Copied to clipboard! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    });
   };
 });
 </script>

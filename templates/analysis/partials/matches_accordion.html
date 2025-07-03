@@ -1,0 +1,152 @@
+<!-- templates/analysis/partials/matches_accordion.html -->
+<div class="accordion" id="results-accordion">
+  {% for log_record, matches_list in grouped_matches %}
+  <div class="accordion-item mb-3">
+    <h2 class="accordion-header">
+      <button class="accordion-button {% if not expand_all and not forloop.first %}collapsed{% endif %}"
+              type="button" data-bs-toggle="collapse"
+              data-bs-target="#group-{{ log_record.id }}"
+              aria-expanded="{% if expand_all or forloop.first %}true{% else %}false{% endif %}">
+        <div class="d-flex align-items-center w-100">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center">
+              <strong class="me-2">Record #{{ log_record.record_index }}</strong>
+              <span class="badge bg-dark rounded-pill me-2">{{ matches_list|length }} matches</span>
+              
+              <!-- Status indicators -->
+              {% regroup matches_list by rule.id as rule_groups %}
+              {% for rule_group in rule_groups %}
+                {% with first_match=rule_group.list.0 %}
+                  {% with all_evals=first_match.logic_evaluations.all %}
+                    {% if all_evals %}
+                      {% with all_passed=True %}
+                        {% for eval in all_evals %}
+                          {% if not eval.passed %}
+                            {% with all_passed=False %}{% endwith %}
+                          {% endif %}
+                        {% endfor %}
+                        <span class="badge bg-{% if all_passed %}success{% else %}danger{% endif %} me-1">
+                          {% if all_passed %}✓{% else %}✗{% endif %}
+                        </span>
+                      {% endwith %}
+                    {% endif %}
+                  {% endwith %}
+                {% endwith %}
+              {% endfor %}
+            </div>
+            <div class="small text-muted mt-1">
+              {{ log_record.content|truncatechars:100 }}
+            </div>
+          </div>
+        </div>
+      </button>
+    </h2>
+    
+    <div id="group-{{ log_record.id }}"
+         class="accordion-collapse collapse {% if expand_all or forloop.first %}show{% endif %}"
+         data-bs-parent="#results-accordion">
+      <div class="accordion-body">
+        
+        <!-- Log Record Display -->
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold">Log Record Content:</span>
+            <button class="btn btn-sm btn-outline-secondary" 
+                    onclick="copyContent(`{{ log_record.content|escapejs }}`)">
+              <i class="fas fa-copy me-1"></i> Copy Log
+            </button>
+          </div>
+          <pre class="p-3 rounded small mb-0">{{ log_record.content }}</pre>
+        </div>
+        
+        <!-- Matches Table -->
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Rule</th>
+                <th>Description</th>
+                <th>Logic Evaluations</th>
+                <th>Tags & MITRE</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for match in matches_list %}
+              <tr>
+                <td>
+                  <div class="fw-semibold">{{ match.rule.name }}</div>
+                  <div class="small text-muted">{{ match.matched_at|date:"M d, H:i" }}</div>
+                </td>
+                
+                <td>
+                  <span class="text-muted small">
+                    {{ match.rule.description|default:"No description"|truncatechars:80 }}
+                  </span>
+                </td>
+                
+                <td>
+                  {% for logic in match.logic_evaluations.all %}
+                  <div class="mb-1">
+                    <span class="fw-semibold small">{{ logic.logic_unit.name }}</span>
+                    <span class="badge bg-{% if logic.passed %}success{% else %}danger{% endif %} ms-1">
+                      {{ logic.passed|yesno:"✓,✗" }}
+                    </span>
+                    <div class="text-muted small">
+                      <code>{{ logic.logic_unit.method }}</code>
+                      {% if logic.logic_unit.pattern %}
+                      <span class="ms-1">{{ logic.logic_unit.pattern|truncatechars:30 }}</span>
+                      {% endif %}
+                      {% if logic.logic_unit.negate %}
+                      <span class="badge bg-warning text-dark ms-1">NOT</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% empty %}
+                  <span class="text-muted small">No logic evaluations</span>
+                  {% endfor %}
+                </td>
+                
+                <td>
+                  <!-- Tags -->
+                  {% for tag in match.rule.tags.all %}
+                  <span class="badge bg-secondary me-1 mb-1">{{ tag.name }}</span>
+                  {% endfor %}
+                  <!-- MITRE Techniques -->
+                  {% for technique in match.rule.mitre_techniques.all %}
+                  <span class="badge bg-info me-1 mb-1">{{ technique.technique_id }} - {{ technique.name }}</span>
+                  {% endfor %}
+                </td>
+                
+                <td>
+                  {% with evaluations=match.logic_evaluations.all %}
+                    {% if evaluations %}
+                      {% with all_passed=True %}
+                        {% for eval in evaluations %}
+                          {% if not eval.passed %}
+                            {% with all_passed=False %}{% endwith %}
+                          {% endif %}
+                        {% endfor %}
+                        <span class="badge bg-{% if all_passed %}success{% else %}danger{% endif %}">
+                          {% if all_passed %}Passed{% else %}Failed{% endif %}
+                        </span>
+                      {% endwith %}
+                    {% else %}
+                      <span class="badge bg-secondary">No Evals</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>No matches found for the current filters.
+  </div>
+  {% endfor %}
+</div>

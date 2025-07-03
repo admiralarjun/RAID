@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container my-5">
+<div class="container-fluid my-5">
     <h3>Incident Analysis Results</h3>
 
     {% for incident in incidents %}
     <div class="card my-4">
         <div class="card-header">
-            <h5 class="mb-0">{{ incident.title }} <small class="text-muted">({{ incident.incident_id }})</small></h5>
+            <a class="btn btn-outline-primary" href="{{incident.get_absolute_url}}">
+                <h5 class="mb-0">{{ incident.title }} <small class="text-muted">({{ incident.incident_id }})</small></h5>
+            </a>
         </div>
         <div class="card-body">
             {% if incident.artefacts.all %}
