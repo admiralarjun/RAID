@@ -272,8 +272,9 @@
             <div class="modal-body">
                 <div class="card">
                     <div class="card-body p-0">
-                        <pre id="analysis-status" class="p-3 mb-0" 
-                             style="height: 300px; overflow-y: auto;"></pre>
+                        <div id="analysis-status" class="p-3 mb-0" 
+     style="height: 300px; overflow-y: auto; font-family: monospace;"></div>
+
                     </div>
                 </div>
                 <div id="results-section" class="mt-3 d-none">
@@ -506,7 +507,6 @@ function launchAnalysisModal(e) {
         function read() {
             return reader.read().then(({done, value}) => {
                 if (done) {
-                    statusElement.textContent += '\nAnalysis complete!';
                     runBtn.disabled = true;
                     const resultLinks = document.getElementById('analysis-result-links');
                     if (resultLinks) {
@@ -516,17 +516,25 @@ function launchAnalysisModal(e) {
                     }
                     return;
                 }
-                
-                // Simply replace the last line with the new status
+
                 const text = decoder.decode(value, {stream: true});
-                statusElement.textContent = text;
-                
+
+                // Append new content
+                statusElement.insertAdjacentHTML('beforeend', text);
+
+                // Limit to last 200 lines (adjust as needed)
+                const lines = statusElement.innerHTML.split('\n');
+                if (lines.length > 200) {
+                    statusElement.innerHTML = lines.slice(-200).join('\n');
+                }
+
                 // Auto-scroll
                 statusElement.scrollTop = statusElement.scrollHeight;
-                
+
                 return read();
             });
         }
+
         
         return read();
     }).catch(error => {

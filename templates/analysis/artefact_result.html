@@ -19,6 +19,99 @@
     </div>
   </div>
 
+  <!-- AI Summary -->
+  <div class="card mb-4">
+  <div class="card-header">
+    <strong><i class="fas fa-robot me-1"></i> AI Analysis Summary</strong>
+    <span class="float-end text-muted" style="font-size: 0.9em;">
+      {{ ai_artefact_analysis_result.generated_at|date:"Y-m-d H:i" }}
+    </span>
+  </div>
+  <div class="card-body">
+    <p><strong>Artefact Type:</strong> {{ ai_artefact_analysis_result.artefact_type }}</p>
+
+    <div class="mb-3">
+      <strong>Summary:</strong>
+      <p>{{ ai_artefact_analysis_result.summary }}</p>
+    </div>
+
+    <div class="mb-3">
+      <strong>Narrative:</strong>
+      <p>{{ ai_artefact_analysis_result.narrative }}</p>
+    </div>
+
+    {% if ai_artefact_analysis_result.highlights %}
+    <div class="mb-3">
+      <strong>Key Highlights:</strong>
+      <div class="table-responsive">
+      <table class="table table-bordered align-middle mb-0">
+        <thead class="table-light">
+        <tr>
+          <th scope="col">Record</th>
+          <th scope="col">Excerpt</th>
+          <th scope="col">Reason</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for h in ai_artefact_analysis_result.highlights %}
+        <tr>
+          <td>
+          <a href="{% url 'core:log_record_permalink' h.record_index %}" class="text-decoration-none">
+            # {{ h.record_index }}
+          </a>
+          </td>
+          <td class="fst-italic">{{ h.excerpt }}</td>
+          <td class="text-success">{{ h.reason }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if ai_artefact_analysis_result.references %}
+    <div class="mb-3">
+      <strong>Relevant Rule References:</strong>
+      <ul class="list-group">
+        {% for r in ai_artefact_analysis_result.references %}
+        <li class="list-group-item">
+          Rule: <strong>{{ r.rule_name }}</strong>
+          <br>
+          Match: <span class="text-muted">#{{ r.rule_match_id }}</span>,
+          <a href="{% url 'core:log_record_permalink' r.record_index %}" class="text-decoration-none">
+            <i class="fas fa-link text-primary me-1"></i>Record {{ r.record_index }}
+          </a>
+          {% if r.mitre_techniques %}
+          <div class="mt-1">
+            MITRE TTPs:
+            {% for m in r.mitre_techniques %}
+              <span class="badge bg-info text-dark">{{ m }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if ai_artefact_analysis_result.recommendations %}
+    <div class="mb-3">
+      <strong>Recommendations:</strong>
+      <ul class="list-group">
+        {% for rec in ai_artefact_analysis_result.recommendations %}
+        <li class="list-group-item">
+          <i class="fas fa-check-circle text-success me-1"></i>{{ rec }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  </div>
+
+
   <!-- Summary Cards -->
   <div class="row mb-4">
     <div class="col-md-3">

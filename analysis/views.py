@@ -11,10 +11,12 @@ from .models import *
 from django.utils import timezone
 import ast
 from django.db.models import Count
+from django.db import transaction
 from collections import defaultdict
 from django.db.models import Q, Prefetch
 from django.core.paginator import Paginator
-
+from django.urls import reverse
+import requests, threading
 
 @method_decorator(login_required, name='dispatch')
 class UnifiedDashboardView(TemplateView):
@@ -23,76 +25,69 @@ class UnifiedDashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        
-        # Enhanced artefacts with statistics
-        artefacts = Artefact.objects.filter(
-            assigned_to=user
-        ).select_related('incident').annotate(
-            record_count=Count('records'),
-            match_count=Count('rule_matches'),
+        now = timezone.now()
+
+        ### Artefact Base Query (fetch IDs first, avoid overfetching)
+        artefact_qs = Artefact.objects.filter(assigned_to=user).select_related('incident')
+
+        # Annotate once
+        artefacts = artefact_qs.annotate(
+            record_count=Count('records', distinct=True),
+            match_count=Count('rule_matches', distinct=True),
             recent_matches=Count(
                 'rule_matches',
-                filter=Q(rule_matches__matched_at__gte=timezone.now() - timedelta(days=7))
+                filter=Q(rule_matches__matched_at__gte=now - timedelta(days=7)),
+                distinct=True
             )
         ).order_by('-uploaded_at')
 
-        # Enhanced incidents with statistics
-        incidents = Incident.objects.filter(
-            responders=user
-        ).prefetch_related('responders').annotate(
-            artefact_count=Count('artefacts'),
-            total_matches=Count('artefacts__rule_matches')
+        # Dashboard-level stats (combine into one queryset)
+        total_artefacts = artefacts.count()
+
+        total_matches_qs = RuleMatch.objects.filter(artefact__assigned_to=user)
+        total_matches = total_matches_qs.count()
+        matches_today = total_matches_qs.filter(matched_at__date=now.date()).count()
+        high_activity_artefacts = artefacts.filter(recent_matches__gt=5).count()
+
+        ### Incidents
+        incidents = Incident.objects.filter(responders=user).prefetch_related('responders').annotate(
+            artefact_count=Count('artefacts', distinct=True),
+            total_matches=Count('artefacts__rule_matches', distinct=True)
         ).order_by('-created_at')
 
-        # Recent matches with better context
-        recent_matches = RuleMatch.objects.filter(
-            artefact__assigned_to=user
-        ).select_related(
-            'rule', 'log_record', 'artefact__incident'
-        ).order_by('-matched_at')[:12]
+        active_incidents = incidents.count()
 
-        # Dashboard statistics
-        stats = {
-            'total_artefacts': artefacts.count(),
-            'active_incidents': incidents.count(),
-            'total_matches': RuleMatch.objects.filter(artefact__assigned_to=user).count(),
-            'matches_today': RuleMatch.objects.filter(
-                artefact__assigned_to=user,
-                matched_at__date=timezone.now().date()
-            ).count(),
-            'high_activity_artefacts': artefacts.filter(recent_matches__gt=5).count(),
-        }
-
-        # Resume analysis - enhanced
+        ### Resume Analysis
         resume_artefact = None
         last_artefact_id = self.request.session.get("last_analysed_artefact_id")
         if last_artefact_id:
-            resume_artefact = artefacts.filter(id=last_artefact_id).first()
+            resume_artefact = artefact_qs.filter(id=last_artefact_id).first()
 
-        # Most active rules
+        ### Top Rules
         top_rules = Rule.objects.filter(
             matches__artefact__assigned_to=user,
             is_enabled=True
         ).annotate(
-            match_count=Count('matches')
+            match_count=Count('matches', distinct=True)
         ).prefetch_related('tags').order_by('-match_count')[:5]
 
-        # Priority artefacts (high activity or recent matches)
-        priority_artefacts = artefacts.filter(
-            Q(recent_matches__gt=3) | Q(match_count__gt=10)
-        ).distinct()[:5]
-
+        ### Final Context
         context.update({
             'artefacts': artefacts,
             'incidents': incidents,
-            'recent_matches': recent_matches,
             'resume_artefact': resume_artefact,
-            'stats': stats,
+            'stats': {
+                'total_artefacts': total_artefacts,
+                'active_incidents': active_incidents,
+                'total_matches': total_matches,
+                'matches_today': matches_today,
+                'high_activity_artefacts': high_activity_artefacts,
+            },
             'top_rules': top_rules,
-            'priority_artefacts': priority_artefacts,
         })
-        
+
         return context
+
 class AnalysisStartView(ListView):
     template_name = "analysis/start_analysis.html"
     context_object_name = "artefacts"
@@ -120,58 +115,150 @@ class AnalysisStartView(ListView):
         return context
 
 
+def safe_boolean_eval(expression: str, context: dict) -> bool:
+    """
+    Safely evaluates a boolean expression using ast parsing.
+    Allows only basic boolean operations.
+    """
+    try:
+        expr_ast = ast.parse(expression, mode='eval')
+
+        # Only allow safe node types
+        for node in ast.walk(expr_ast):
+            if not isinstance(node, (ast.Expression, ast.BoolOp, ast.UnaryOp, ast.Name,
+                                     ast.Load, ast.And, ast.Or, ast.Not,
+                                     ast.Constant, ast.NameConstant)):
+                raise ValueError(f"Unsafe expression element: {type(node).__name__}")
+
+        # Evaluate in the provided context
+        compiled = compile(expr_ast, "<string>", "eval")
+        return bool(eval(compiled, {"__builtins__": {}}, context))
+
+    except Exception as e:
+        raise ValueError(f"Expression evaluation failed: {e}")
+
+
 @login_required
 def run_analysis(request):
     artefact_ids = request.POST.getlist("artefact_ids")
     rule_ids = request.POST.get("rule_ids", "").split(",")
 
-    artefacts = Artefact.objects.filter(id__in=artefact_ids, assigned_to=request.user).prefetch_related("records")
-    rules = Rule.objects.filter(id__in=rule_ids, is_enabled=True).prefetch_related("logics", "tags")
+    artefacts = Artefact.objects.filter(
+        id__in=artefact_ids,
+        assigned_to=request.user
+    ).prefetch_related("incident", "records")
+
+    rules = Rule.objects.filter(
+        id__in=rule_ids,
+        is_enabled=True
+    ).prefetch_related("logics", "tags")
 
     def stream():
-        for artefact in artefacts:
-            current_artefact = artefact.name
-            for record in artefact.records.all():
-                current_record = record.record_index
-                for rule in rules:
-                    # Yield the current analysis step
-                    yield f"Checking {current_artefact} - Record #{current_record} - Rule: {rule.name}\n"
-                    
-                    # Evaluate logics
-                    logic_results = {}
-                    for i, logic in enumerate(rule.logics.all(), 1):
-                        alias = f"L{i}"
-                        result = logic.evaluate(record.content)
-                        logic_results[alias] = result
-                    
-                    # Check if rule matches
-                    try:
-                        expr = rule.boolean_expression
-                        for alias, result in logic_results.items():
-                            expr = expr.replace(alias, str(result))
-                        passed = ast.literal_eval(expr)
-                    except Exception:
-                        passed = False
-                    
-                    if passed:
-                        # Create match record
-                        match = RuleMatch.objects.create(
-                            rule=rule,
-                            artefact=artefact,
-                            log_record=record,
-                            matched_at=timezone.now()
-                        )
-                        
-                        # Save logic evaluations
-                        for i, logic in enumerate(rule.logics.all(), 1):
-                            LogicEvaluation.objects.create(
-                                rule_match=match,
-                                logic_unit=logic,
-                                passed=logic_results[f"L{i}"]
-                        )
+        yield '<p class="text-primary"><i class="fa fa-play-circle"></i> Starting rule-based analysis...</p>\n'
 
-    return StreamingHttpResponse(stream(), content_type='text/plain')
+        total_artefacts = artefacts.count()
+        with transaction.atomic():
+            for artefact_index, artefact in enumerate(artefacts, start=1):
+                yield f'<p class="text-info"><i class="fa fa-file-alt"></i> Artefact [{artefact_index}/{total_artefacts}]: <strong>{artefact.name}</strong></p>\n'
 
+                records = list(artefact.records.all())
+                if not records:
+                    yield '<p class="text-warning"><i class="fa fa-exclamation-circle"></i> No records found.</p>\n'
+                    continue
+
+                total_records = len(records)
+                for record_index, record in enumerate(records, start=1):
+                    yield f'<p class="text-secondary"><i class="fa fa-database"></i> Record [{record_index}/{total_records}] #{record.record_index}</p>\n'
+
+                    for rule_index, rule in enumerate(rules, start=1):
+                        yield f'<p class="text-secondary"><i class="fa fa-cogs"></i> Applying Rule [{rule_index}/{rules.count()}]: <strong>{rule.name}</strong></p>\n'
+
+                        logic_results = {}
+                        logics = list(rule.logics.all())
+                        for i, logic in enumerate(logics, 1):
+                            alias = f"L{i}"
+                            try:
+                                logic_results[alias] = logic.evaluate(record.content)
+                                result_icon = "fa-check-circle" if logic_results[alias] else "fa-times-circle"
+                                result_class = "text-success" if logic_results[alias] else "text-danger"
+                                yield f'<p class="{result_class}"><i class="fa {result_icon}"></i> Logic "{logic.name}": {logic_results[alias]}</p>\n'
+                            except Exception as e:
+                                yield f'<p class="text-danger"><i class="fa fa-bug"></i> Error in Logic "{logic.name}": {e}</p>\n'
+                                logic_results[alias] = False
+
+                        try:
+                            passed = safe_boolean_eval(rule.boolean_expression, logic_results)
+                        except Exception as e:
+                            yield f'<p class="text-danger"><i class="fa fa-exclamation-triangle"></i> Error evaluating boolean expression: {e}</p>\n'
+                            passed = False
+
+                        if passed:
+                            match, created = RuleMatch.objects.get_or_create(
+                                rule=rule,
+                                artefact=artefact,
+                                log_record=record,
+                                defaults={'matched_at': timezone.now()}
+                            )
+                            if created:
+                                yield f'<p class="text-success"><i class="fa fa-check-circle"></i> Match found (ID: {match.id})</p>\n'
+                                LogicEvaluation.objects.bulk_create([
+                                    LogicEvaluation(
+                                        rule_match=match,
+                                        logic_unit=lg,
+                                        passed=logic_results.get(f"L{idx}", False)
+                                    ) for idx, lg in enumerate(logics, 1)
+                                ])
+                            else:
+                                yield '<p class="text-warning"><i class="fa fa-clone"></i> Duplicate match. Skipped.</p>\n'
+                        else:
+                            yield '<p class="text-muted"><i class="fa fa-times-circle"></i> No match for this rule.</p>\n'
+
+        yield '<p class="text-primary"><i class="fa fa-check"></i> Rule-based analysis complete.</p>\n'
+
+        # Trigger artefact-level AI analysis
+        yield '<p class="text-primary"><i class="fa fa-robot"></i> Triggering AI analysis for artefacts...</p>\n'
+        artefact_links = []
+        for artefact_idx, artefact in enumerate(artefacts, start=1):
+            url = request.build_absolute_uri(reverse('analysis:ai_artefact_analysis', args=[artefact.id]))
+            try:
+                resp = requests.post(url, timeout=90)
+                if resp.ok:
+                    artefact_result_url = request.build_absolute_uri(reverse('analysis:artefact_result', args=[artefact.id]))
+                    artefact_links.append(f'<a href="{artefact_result_url}" target="_blank">{artefact.name}</a>')
+                    yield f'<p class="text-success"><i class="fa fa-robot"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis completed for <strong>{artefact.name}</strong></p>\n'
+                else:
+                    yield f'<p class="text-danger"><i class="fa fa-times-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis failed for {artefact.name}: {resp.status_code}</p>\n'
+            except Exception as e:
+                yield f'<p class="text-danger"><i class="fa fa-exclamation-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI request error for {artefact.name}: {e}</p>\n'
+
+        if artefact_links:
+            links_html = ", ".join(artefact_links)
+            yield f'<p class="text-info"><i class="fa fa-link"></i> View artefact AI results: {links_html}</p>\n'
+
+        # Trigger incident-level AI analysis
+        incident_id = None
+        if artefacts.exists() and artefacts.first().incident:
+            incident_id = str(artefacts.first().incident.incident_id)
+
+        if incident_id:
+            yield '<p class="text-primary"><i class="fa fa-robot"></i> Triggering incident-level AI analysis...</p>\n'
+            try:
+                url_inc = request.build_absolute_uri(reverse('analysis:ai_incident_analysis', args=[incident_id]))
+                resp = requests.post(url_inc, timeout=300)
+                if resp.ok:
+                    incident_result_url = request.build_absolute_uri(reverse('core:incident_detail', args=[incident_id]))
+                    yield f'<p class="text-success"><i class="fa fa-check-circle"></i> Incident-level AI analysis completed. <a href="{incident_result_url}" target="_blank">View Incident Summary</a></p>\n'
+                else:
+                    yield f'<p class="text-danger"><i class="fa fa-times-circle"></i> Incident-level AI failed: {resp.status_code}</p>\n'
+            except Exception as e:
+                yield f'<p class="text-danger"><i class="fa fa-exclamation-circle"></i> Incident-level AI error: {e}</p>\n'
+        else:
+            yield '<p class="text-warning"><i class="fa fa-exclamation-triangle"></i> No incident found for the artefacts. Skipping incident AI analysis.</p>\n'
+
+        yield '<p class="text-success"><i class="fa fa-flag-checkered"></i> Full analysis complete.</p>\n'
+
+    
+    return StreamingHttpResponse(stream(), content_type='text/html')
 
 @method_decorator(login_required, name='dispatch')
 class ArtefactAnalysisResultView(TemplateView):
@@ -259,6 +346,9 @@ class ArtefactAnalysisResultView(TemplateView):
         all_matches = RuleMatch.objects.filter(artefact=artefact).prefetch_related(
             'rule__tags', 'rule__mitre_techniques'
         )
+
+        # Ai Analysis Results
+        ai_artefact_analysis_result = AIAnalysisResult.objects.filter(artefact=artefact).first()
         
         available_tags = set()
         available_techniques = set()
@@ -274,6 +364,7 @@ class ArtefactAnalysisResultView(TemplateView):
         
         context.update({
             "artefact": artefact,
+            "ai_artefact_analysis_result": ai_artefact_analysis_result,
             "page_obj": page_obj,
             "grouped_matches": page_obj.object_list,
             "total_matches": matches_qs.count(),
@@ -297,6 +388,7 @@ class ArtefactAnalysisResultView(TemplateView):
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from datetime import timedelta
+import pprint
 
 @login_required
 def filter_matches_ajax(request, pk):

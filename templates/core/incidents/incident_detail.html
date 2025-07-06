@@ -1,80 +1,271 @@
 {% extends "base.html" %}
+{% load utils %}
 
 {% block content %}
-<div class="container-fluid py-4">
-  <div class="mb-3">
-    <h4 class="mb-1">
-      <i class="fa fa-exclamation-triangle text-warning"></i> {{ object.title }}
-    </h4>
-    <small class="text-muted">
-      <i class="fa fa-hashtag"></i> Incident ID: {{ object.incident_id }}
-    </small>
+<div class="container-fluid py-3">
+  <!-- Full-Width Header -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-start">
+        <div class="flex-fill">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="fa fa-exclamation-triangle text-warning"></i>
+            <h4 class="mb-0">{{ object.title }}</h4>
+            <span class="badge bg-{{ object.status|yesno:"success,warning,danger" }} ms-2">{{ object.get_status_display }}</span>
+            <span class="badge bg-{{ object.severity|yesno:"danger,warning,info" }}">{{ object.get_severity_display }}</span>
+          </div>
+          <small class="text-muted">#{{ object.incident_id }} | {{ object.client.name }}</small>
+        </div>
+        <div class="btn-group">
+          <a href="{% url 'core:incident_update' object.pk %}" class="btn btn-warning btn-sm">
+            <i class="fa fa-edit"></i> Edit
+          </a>
+          <a href="{% url 'core:incident_list' %}" class="btn btn-secondary btn-sm">
+            <i class="fa fa-arrow-left"></i> Back
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- Full-Width Team Info -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <small class="text-muted">Manager:</small> <strong>{{ object.incident_manager }}</strong>
+    </div>
+    <div class="col-md-4">
+      <small class="text-muted">Lead:</small> <strong>{{ object.lead_responder|default:"—" }}</strong>
+    </div>
+    <div class="col-md-4">
+      <small class="text-muted">Responders:</small> <strong>{{ object.responders.all|join:", "|default:"—" }}</strong>
+    </div>
+  </div>
+
+  <!-- Full-Width Artefacts Section -->
   <div class="row mb-4">
-    <div class="col-md-6">
-      <p class="mb-1"><strong><i class="fa fa-info-circle"></i> Status:</strong> {{ object.get_status_display }}</p>
-      <p class="mb-1"><strong><i class="fa fa-thermometer-half"></i> Severity:</strong> {{ object.get_severity_display }}</p>
-      <p class="mb-1"><strong><i class="fa fa-building"></i> Client:</strong> {{ object.client.name }}</p>
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fa fa-archive me-2"></i>Artefacts ({{ object.artefacts.count }})</h6>
+          <a href="{% url 'core:artefact_create' %}?incident={{ object.pk }}" class="btn btn-success btn-sm">
+            <i class="fa fa-plus"></i> Add Artefact
+          </a>
+        </div>
+        <div class="card-body p-0">
+          {% if object.artefacts.exists %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Uploader</th>
+                  <th>Assigned</th>
+                  <th>Uploaded</th>
+                  <th>AI Status</th>
+                  <th width="150">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for art in object.artefacts.all %}
+                <tr>
+                  <td><strong>{{ art.name }}</strong></td>
+                  <td><span class="badge bg-light text-dark">{{ art.get_artefact_type_display }}</span></td>
+                  <td>{{ art.uploaded_by }}</td>
+                  <td>{{ art.assigned_to|default:"—" }}</td>
+                  <td><small>{{ art.uploaded_at|date:"M d, H:i" }}</small></td>
+                  <td>
+                    {% with ai=artefact_ai|dict_get:art.id %}
+                      {% if ai %}
+                        <span class="badge bg-success">Analyzed</span>
+                      {% else %}
+                        <span class="badge bg-secondary">Pending</span>
+                      {% endif %}
+                    {% endwith %}
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <a href="{% url 'core:artefact_detail' art.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fa fa-eye"></i>
+                      </a>
+                      {% with ai=artefact_ai|dict_get:art.id %}
+                        {% if ai %}
+                          <a href="{% url 'analysis:artefact_result' art.id %}" class="btn btn-outline-info btn-sm">
+                            <i class="fa fa-brain"></i>
+                          </a>
+                        {% else %}
+                          <a href="{% url 'analysis:start' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fa fa-robot"></i>
+                          </a>
+                        {% endif %}
+                      {% endwith %}
+                      <a href="{% url 'core:artefact_delete' art.pk %}?next={% url 'core:incident_detail' object.incident_id %}" 
+                         class="btn btn-outline-danger btn-sm">
+                        <i class="fa fa-trash"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="fa fa-inbox fa-2x mb-2"></i>
+            <p class="mb-2">No artefacts uploaded yet.</p>
+            <a href="{% url 'core:artefact_create' %}?incident={{ object.pk }}" class="btn btn-success btn-sm">
+              <i class="fa fa-plus"></i> Upload First Artefact
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <div class="col-md-6">
-      <p class="mb-1"><strong><i class="fa fa-user-tie"></i> Manager:</strong> {{ object.incident_manager }}</p>
-      <p class="mb-1"><strong><i class="fa fa-user-shield"></i> Lead:</strong> {{ object.lead_responder|default:"—" }}</p>
-      <p class="mb-1"><strong><i class="fa fa-users"></i> Responders:</strong> {{ object.responders.all|join:", " }}</p>
-    </div>
   </div>
 
-  <div class="d-flex gap-2 mb-4">
-    <a href="{% url 'core:incident_update' object.pk %}" class="btn btn-warning btn-sm">
-      <i class="fa fa-edit"></i> Edit
-    </a>
-    <a href="{% url 'core:incident_list' %}" class="btn btn-secondary btn-sm">
-      <i class="fa fa-arrow-left"></i> Back
-    </a>
-  </div>
-
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <h5 class="mb-0"><i class="fa fa-archive"></i> Artefacts</h5>
-    <a href="{% url 'core:artefact_create' %}?incident={{ object.pk }}" class="btn btn-sm btn-success">
-      <i class="fa fa-plus"></i> Add Artefacts
-    </a>
-  </div>
-
+  <!-- Full-Width AI Analysis Summary -->
   {% if object.artefacts.exists %}
-      <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 0.88rem;">
-        <thead class="table-light">
-          <tr>
-            <th><i class="fa fa-file-alt"></i> Name</th>
-            <th><i class="fa fa-tag"></i> Type</th>
-            <th><i class="fa fa-user"></i> Uploader</th>
-            <th><i class="fa fa-user-check"></i> Assigned</th>
-            <th><i class="fa fa-calendar-alt"></i> Uploaded</th>
-            <th><i class="fa fa-cogs"></i> Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for artefact in object.artefacts.all %}
-            <tr>
-              <td class="text-break">{{ artefact.name }}</td>
-              <td>{{ artefact.get_artefact_type_display }}</td>
-              <td>{{ artefact.uploaded_by }}</td>
-              <td>{{ artefact.assigned_to|default:"—" }}</td>
-              <td>{{ artefact.uploaded_at|date:"M d, Y H:i" }}</td>
-              <td>
-                <div class="d-flex gap-1">
-                  <a href="{% url 'core:artefact_detail' artefact.pk %}" class="btn btn-sm btn-outline-primary">
-                    <i class="fa fa-eye"></i> View
-                  </a>
-                  <a href="{% url 'core:artefact_delete' artefact.pk %}?next={% url 'core:incident_detail' object.incident_id %}"
-                    class="btn btn-sm btn-outline-danger">
-                    <i class="fa fa-trash"></i> Delete
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fa fa-robot me-2"></i>AI Analysis Summary</h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for art in object.artefacts.all %}
+            {% with ai=artefact_ai|dict_get:art.id %}
+              {% if ai %}
+              <div class="col-xl-3 col-lg-4 col-md-6">
+                <div class="border rounded p-3 h-100">
+                  <h6 class="text-truncate">{{ art.name }}</h6>
+                  <p class="small text-muted mb-2">{{ art.get_artefact_type_display }}</p>
+                  <p class="mb-3">{{ ai.summary|truncatechars:120 }}</p>
+                  <a href="{% url 'analysis:artefact_result' art.id %}" class="btn btn-sm btn-outline-primary">
+                    View Full Analysis
                   </a>
                 </div>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+              </div>
+              {% endif %}
+            {% endwith %}
+            {% empty %}
+            <div class="col-12 text-center text-muted">
+              <i class="fa fa-robot fa-2x mb-2"></i>
+              <p class="mb-2">No AI analysis available yet.</p>
+              <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
+                <i class="fa fa-play"></i> Start AI Analysis
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   {% endif %}
+
+  <!-- Full-Width Incident Analysis -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fa fa-brain me-2"></i>Incident Analysis</h6>
+        </div>
+        <div class="card-body">
+          {% if incident_ai %}
+          <div class="row">
+            <div class="col-md-6">
+              <h6>Summary</h6>
+              <p>{{ incident_ai.summary }}</p>
+              <small class="text-muted">Generated: {{ incident_ai.generated_at|date:"M d, H:i" }}</small>
+            </div>
+            <div class="col-md-6">
+              <h6>Analysis Details</h6>
+              <p class="text-muted">Additional incident-level insights and recommendations.</p>
+            </div>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fa fa-cog fa-3x mb-3"></i>
+            <h6>Incident AI Analysis Not Run Yet</h6>
+            <p class="mb-3">Run AI analysis to get incident-level insights and recommendations.</p>
+            <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
+              <i class="fa fa-play"></i> Start Analysis
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-Width Hypotheses and Actions -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fa fa-lightbulb me-2"></i>Hypotheses</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if hypotheses %}
+          <div class="list-group list-group-flush">
+            {% for h in hypotheses %}
+            <div class="list-group-item">
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">Hypothesis {{ forloop.counter }}</h6>
+              </div>
+              <p class="mb-1">{{ h.description }}</p>
+              <small class="text-muted">
+                {% if h.artefacts %}Artefacts: {{ h.artefacts|join:", " }} | {% endif %}
+                {% if h.mitre_techniques %}MITRE: {{ h.mitre_techniques|join:", " }}{% endif %}
+              </small>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="fa fa-lightbulb fa-2x mb-2"></i>
+            <p class="mb-2">No hypotheses generated yet.</p>
+            <a href="{% url 'analysis:start' %}" class="btn btn-outline-primary btn-sm">
+              <i class="fa fa-magic"></i> Generate Hypotheses
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fa fa-tasks me-2"></i>Actions</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if actions %}
+          <div class="list-group list-group-flush">
+            {% for act in actions %}
+            <div class="list-group-item d-flex justify-content-between align-items-start">
+              <div class="ms-2 me-auto">
+                <div class="fw-bold">{{ act.description }}</div>
+              </div>
+              <span class="badge bg-{{ act.status|yesno:"success,warning,secondary" }} rounded-pill">
+                {{ act.get_status_display }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">
+            <i class="fa fa-clipboard-list fa-2x mb-2"></i>
+            <p class="mb-2">No actions defined yet.</p>
+            <a href="{% url 'analysis:start' %}" class="btn btn-outline-primary btn-sm">
+              <i class="fa fa-plus"></i> Create Actions
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

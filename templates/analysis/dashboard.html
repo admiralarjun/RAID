@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load humanize %}
 
-{% block title %}Forensic Analysis Dashboard{% endblock %}
+{% block title %}Artefacts Analysis Dashboard{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
@@ -9,7 +9,7 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <h2 class="mb-1">Forensic Analysis Dashboard</h2>
+            <h2 class="mb-1">Artefacts Analysis Dashboard</h2>
             <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}</p>
         </div>
     </div>
@@ -93,29 +93,7 @@
     <div class="row">
         <!-- Main Content -->
         <div class="col-lg-8">
-            
-            <!-- Priority Artefacts Alert -->
-            {% if priority_artefacts %}
-            <div class="card border-warning mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <h6 class="mb-0">
-                        <i class="fas fa-exclamation-triangle me-2"></i>High Priority Artefacts
-                    </h6>
-                </div>
-                <div class="card-body py-2">
-                    <div class="row">
-                        {% for artefact in priority_artefacts %}
-                        <div class="col-md-6 mb-2">
-                            <a href="{% url 'analysis:artefact_result' artefact.pk %}" class="text-decoration-none">
-                                <strong>{{ artefact.name }}</strong>
-                            </a>
-                            <span class="badge bg-danger ms-2">{{ artefact.recent_matches }} recent</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
+           
 
             <!-- Assigned Artefacts -->
             <div class="card mb-4">
@@ -313,49 +291,7 @@
                 </div>
             </div>
 
-            <!-- Recent Matches -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">
-                        <i class="fas fa-search me-2"></i>Recent Matches
-                    </h6>
-                    {% if recent_matches.count > 8 %}
-                    <small class="text-muted">Showing latest 8</small>
-                    {% endif %}
-                </div>
-                <div class="card-body p-0">
-                    {% if recent_matches %}
-                    <div class="list-group list-group-flush">
-                        {% for match in recent_matches|slice:":8" %}
-                        <div class="list-group-item border-0">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold">{{ match.rule.name|truncatechars:30 }}</div>
-                                    <div class="small text-muted">
-                                        on <a href="{% url 'analysis:artefact_result' match.artefact.pk %}" 
-                                              class="text-decoration-none">
-                                            {{ match.artefact.name|truncatechars:20 }}
-                                        </a>
-                                    </div>
-                                    <div class="small text-muted">
-                                        <i class="fas fa-clock me-1"></i>{{ match.matched_at|naturaltime }}
-                                    </div>
-                                </div>
-                                <span class="badge  text-dark">
-                                    #{{ match.log_record.record_index }}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-search fa-2x text-muted mb-2"></i>
-                        <div class="small text-muted">No recent matches</div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+
         </div>
     </div>
 </div>

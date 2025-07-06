@@ -1,8 +1,8 @@
 # models/analysis.py (or analysis/models.py)
 from django.db import models
-from core.models import Artefact, LogRecord
+from core.models import Artefact, LogRecord, Incident
 import re
-
+from django.utils import timezone
 
 class LogicUnit(models.Model):
     EVALUATION_METHODS = [
@@ -84,3 +84,41 @@ class LogicEvaluation(models.Model):
 
     def __str__(self):
         return f"{self.logic_unit.name} = {'✅' if self.passed else '❌'}"
+
+class AIAnalysisResult(models.Model):
+    artefact = models.ForeignKey(Artefact, on_delete=models.CASCADE, related_name='ai_results')
+    artefact_type = models.CharField(max_length=50)
+    generated_at = models.DateTimeField(auto_now_add=True)
+    summary = models.TextField()
+    narrative = models.TextField()
+    highlights = models.JSONField(default=list)   # List of {record_index, excerpt, reason}
+    references = models.JSONField(default=list)   # List of {rule_match_id, rule_name, record_index, mitre_techniques}
+    prompt_used = models.TextField()              # The exact prompt sent to the AI
+    raw_response = models.JSONField(default=dict) # Full AI response JSON
+
+    def __str__(self):
+        return f"AIAnalysisResult({self.artefact.name}@{self.generated_at:%Y-%m-%d %H:%M:%S})"
+    
+
+
+class IncidentAnalysisResult(models.Model):
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE, related_name='ai_incident_results')
+    generated_at = models.DateTimeField(default=timezone.now)
+    summary = models.TextField()
+    prompt_used = models.TextField()
+    raw_response = models.JSONField(default=dict)
+
+    def __str__(self):
+        return f"IncidentAnalysisResult({self.incident.incident_id}@{self.generated_at:%Y-%m-%d %H:%M:%S})"
+
+class IncidentHypothesis(models.Model):
+    analysis = models.ForeignKey(IncidentAnalysisResult, on_delete=models.CASCADE, related_name='hypotheses')
+    description = models.TextField()
+    artefacts = models.JSONField(default=list)         # list of artefact names
+    mitre_techniques = models.JSONField(default=list)  # list of ATT&CK IDs
+    
+class IncidentAction(models.Model):
+    hypothesis = models.ForeignKey(IncidentHypothesis, on_delete=models.CASCADE, related_name='actions')
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=[
+        ('todo','To Do'), ('in_progress','In Progress'), ('done','Done')], default='todo')

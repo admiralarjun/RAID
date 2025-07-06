@@ -1,3 +1,4 @@
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import get_object_or_404, render
@@ -6,6 +7,7 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, V
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from .models import *
+from analysis.models import IncidentAction
 from .forms import *
 from django.views.generic.edit import DeleteView
 from .parser import parse_artefact_file
@@ -48,6 +50,31 @@ class IncidentDetailView(LoginRequiredMixin, DetailView):
     slug_field = 'incident_id'
     slug_url_kwarg = 'incident_id'
     context_object_name = "incident"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        incident = ctx['incident']
+
+        # Per-artefact latest AI result lookup
+        ctx['artefact_ai'] = {
+            arte.id: arte.ai_results.order_by('-generated_at').first()
+            for arte in incident.artefacts.all()
+        }
+
+        # Incident-level analysis
+        incident_ai = incident.ai_incident_results.order_by('-generated_at').first()
+        ctx['incident_ai'] = incident_ai
+
+        if incident_ai:
+            ctx['hypotheses'] = list(incident_ai.hypotheses.all())
+            ctx['actions'] = list(
+                IncidentAction.objects.filter(hypothesis__analysis=incident_ai)
+            )
+        else:
+            ctx['hypotheses'] = []
+            ctx['actions'] = []
+
+        return ctx
 
 class IncidentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     model = Incident
