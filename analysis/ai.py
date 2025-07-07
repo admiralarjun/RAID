@@ -219,7 +219,6 @@ def ai_incident_analysis(request, incident_id):
     {sorted(all_mitre)}
 
     Analysis Tasks:
-    You must produce a structured JSON response according to the IncidentAIOutput schema. Your answer should demonstrate:
     - Cross-artefact reasoning: correlate findings across artefacts to build coherent hypotheses.
     - Analytical rigor: base each hypothesis on available evidence, but clearly state assumptions or uncertainties.
     - Operational clarity: propose practical next steps as actions, with each action clearly tied to its supporting hypothesis.
@@ -238,9 +237,6 @@ def ai_incident_analysis(request, incident_id):
     4. **adaptive_workflows:** Suggest workflows or response steps that adapt to evolving findings. Consider evidence gaps, pivot points, and defensive priorities.
 
     5. **evidence_gaps:** Identify areas where evidence is missing, ambiguous, or requires deeper investigation. Suggest where to search for additional artefacts or telemetry.
-
-    Use clear, structured reasoning. Be concise but complete.
-    Return JSON adhering to the IncidentAIOutput schema.
     """
 
     resp = client.models.generate_content(
@@ -290,7 +286,7 @@ def ai_incident_analysis(request, incident_id):
     )
 
     # Update incident_output with the graph
-    incident_output.graph = incident_graph
+    ira.graph = incident_graph
 
     return JsonResponse({"incident_ai_result_id": ira.id, **incident_output.model_dump()})
 
