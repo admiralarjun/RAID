@@ -1,0 +1,256 @@
+# Copy-paste this entire block into Django shell: python manage.py shell
+
+from analysis.models import LogicUnit, Rule, RuleTag, MitreTechnique
+from django.db import transaction
+
+# Clear existing data (optional)
+# Rule.objects.all().delete()
+# LogicUnit.objects.all().delete() 
+# RuleTag.objects.all().delete()
+# MitreTechnique.objects.all().delete()
+
+# Create MITRE Techniques
+mitre_techniques = [
+    ('T1059.001', 'PowerShell Execution'),
+    ('T1059.003', 'Windows Command Shell'),
+    ('T1059.005', 'Visual Basic Script'),
+    ('T1218.007', 'Msiexec Proxy Execution'),
+    ('T1055', 'Process Injection'),
+    ('T1083', 'File and Directory Discovery'),
+    ('T1135', 'Network Share Discovery'),
+    ('T1110', 'Brute Force'),
+    ('T1021.002', 'Remote Services: SMB/Windows Admin Shares'),
+    ('T1070.001', 'Clear Windows Event Logs'),
+    ('T1562.001', 'Disable Security Tools'),
+    ('T1036', 'Masquerading'),
+    ('T1027', 'Obfuscated Files'),
+    ('T1071.001', 'Web Protocols'),
+    ('T1543.003', 'Windows Service Creation'),
+]
+
+for tech_id, name in mitre_techniques:
+    MitreTechnique.objects.get_or_create(technique_id=tech_id, defaults={'name': name})
+
+# Create Rule Tags
+tags = ['malware', 'lateral_movement', 'persistence', 'execution', 'discovery', 'brute_force', 'command_control', 'defense_evasion', 'privilege_escalation', 'reconnaissance']
+for tag_name in tags:
+    RuleTag.objects.get_or_create(name=tag_name)
+
+# Create Logic Units
+logic_units = [
+    # PowerShell Detection
+    ('PowerShell Execution', 'powershell.exe', 'contains', False),
+    ('PowerShell EncodedCommand', '-EncodedCommand', 'contains', False),
+    ('PowerShell IEX', 'Invoke-Expression|IEX', 'regex', False),
+    ('PowerShell DownloadString', 'DownloadString', 'contains', False),
+    ('PowerShell Base64', '[A-Za-z0-9+/]{20,}={0,2}', 'regex', False),
+    
+    # Meterpreter Detection
+    ('Meterpreter Stageless', 'meterpreter', 'contains', False),
+    ('Reverse TCP Connection', 'reverse_tcp', 'contains', False),
+    ('MSI Package Execution', 'msiexec', 'contains', False),
+    ('MSI Quiet Install', '/quiet|/q', 'regex', False),
+    
+    # VBScript Detection
+    ('VBScript Execution', 'wscript.exe|cscript.exe', 'regex', False),
+    ('VBS File Extension', r'\.vbs', 'regex', False),
+    ('VBScript CreateObject', 'CreateObject', 'contains', False),
+    ('VBScript WScript.Shell', 'WScript.Shell', 'contains', False),
+    
+    # Named Pipes Discovery
+    ('Named Pipes Enum', r'\\\\.*\\pipe\\', 'regex', False),
+    ('Net Use Command', 'net use', 'contains', False),
+    ('SMB Share Access', r'\\\\[^\\s]+\\[^\\s]+', 'regex', False),
+    
+    # Authentication Events
+    ('Failed Login', 'authentication failed|login failed|logon failed', 'regex', False),
+    ('Brute Force Pattern', 'failed.*password.*attempts?', 'regex', False),
+    ('Multiple Failed Logins', 'failed.*login.*user', 'regex', False),
+    ('Successful Login After Failures', 'successful.*login|logon.*successful', 'regex', False),
+    
+    # Network Activity
+    ('Outbound Connection', 'outbound.*connection|connection.*established', 'regex', False),
+    ('HTTP Request', 'GET|POST|PUT|DELETE', 'regex', False),
+    ('Suspicious User Agent', 'Mozilla/4.0|curl|wget|python-requests', 'regex', False),
+    ('C2 Communication', 'beacon|heartbeat|checkin', 'regex', False),
+    
+    # System Events
+    ('Process Creation', 'process.*created|new.*process', 'regex', False),
+    ('Service Installation', 'service.*installed|new.*service', 'regex', False),
+    ('Registry Modification', 'registry.*modified|regkey.*changed', 'regex', False),
+    ('File Creation', 'file.*created|new.*file', 'regex', False),
+    ('Scheduled Task', 'scheduled.*task|task.*created', 'regex', False),
+    
+    # Evasion Techniques
+    ('Event Log Cleared', 'event.*log.*cleared|logs.*deleted', 'regex', False),
+    ('Security Tool Disabled', 'antivirus.*disabled|firewall.*disabled', 'regex', False),
+    ('Suspicious Process Name', 'svchost.*exe|winlogon.*exe|explorer.*exe', 'regex', False),
+    ('Temp File Execution', r'\\temp\\|\\tmp\\|%temp%', 'regex', False),
+    
+    # Lateral Movement
+    ('Remote Desktop', 'rdp|remote.*desktop|terminal.*services', 'regex', False),
+    ('PsExec Usage', 'psexec', 'contains', False),
+    ('WMI Execution', 'wmi|wmic', 'regex', False),
+    ('Admin Share Access', r'\\\\.*\\admin\$|\\\\.*\\c\$', 'regex', False),
+]
+
+for name, pattern, method, negate in logic_units:
+    LogicUnit.objects.get_or_create(
+        name=name,
+        defaults={'pattern': pattern, 'method': method, 'negate': negate}
+    )
+
+# Create Detection Rules
+rules_data = [
+    {
+        'name': 'Meterpreter Stageless Execution',
+        'description': 'Detects execution of stageless meterpreter payload',
+        'logics': ['Meterpreter Stageless', 'Process Creation'],
+        'expression': 'L1 and L2',
+        'tags': ['malware', 'execution'],
+        'mitre': ['T1059.001', 'T1055']
+    },
+    {
+        'name': 'PowerShell Encoded Command Execution',
+        'description': 'Detects PowerShell execution with encoded commands',
+        'logics': ['PowerShell Execution', 'PowerShell EncodedCommand'],
+        'expression': 'L1 and L2',
+        'tags': ['execution', 'defense_evasion'],
+        'mitre': ['T1059.001', 'T1027']
+    },
+    {
+        'name': 'VBScript Malicious Activity',
+        'description': 'Detects suspicious VBScript execution patterns',
+        'logics': ['VBScript Execution', 'VBScript CreateObject', 'VBScript WScript.Shell'],
+        'expression': 'L1 and (L2 or L3)',
+        'tags': ['execution', 'malware'],
+        'mitre': ['T1059.005']
+    },
+    {
+        'name': 'MSI Package Suspicious Installation',
+        'description': 'Detects suspicious MSI package installations',
+        'logics': ['MSI Package Execution', 'MSI Quiet Install', 'Temp File Execution'],
+        'expression': 'L1 and L2 and L3',
+        'tags': ['execution', 'defense_evasion'],
+        'mitre': ['T1218.007']
+    },
+    {
+        'name': 'Named Pipes Discovery Activity',
+        'description': 'Detects reconnaissance via named pipes enumeration',
+        'logics': ['Named Pipes Enum', 'Net Use Command'],
+        'expression': 'L1 or L2',
+        'tags': ['discovery', 'reconnaissance'],
+        'mitre': ['T1135', 'T1083']
+    },
+    {
+        'name': 'Credential Brute Force Attack',
+        'description': 'Detects potential brute force authentication attempts',
+        'logics': ['Failed Login', 'Brute Force Pattern', 'Multiple Failed Logins'],
+        'expression': 'L1 and (L2 or L3)',
+        'tags': ['brute_force', 'credential_access'],
+        'mitre': ['T1110']
+    },
+    {
+        'name': 'Successful Login After Brute Force',
+        'description': 'Detects successful authentication after multiple failures',
+        'logics': ['Multiple Failed Logins', 'Successful Login After Failures'],
+        'expression': 'L1 and L2',
+        'tags': ['brute_force', 'lateral_movement'],
+        'mitre': ['T1110', 'T1078']
+    },
+    {
+        'name': 'PowerShell Download and Execute',
+        'description': 'Detects PowerShell downloading and executing remote content',
+        'logics': ['PowerShell Execution', 'PowerShell DownloadString', 'PowerShell IEX'],
+        'expression': 'L1 and L2 and L3',
+        'tags': ['execution', 'command_control'],
+        'mitre': ['T1059.001', 'T1071.001']
+    },
+    {
+        'name': 'Lateral Movement via SMB',
+        'description': 'Detects lateral movement using SMB shares',
+        'logics': ['SMB Share Access', 'Admin Share Access', 'Remote Desktop'],
+        'expression': 'L1 and (L2 or L3)',
+        'tags': ['lateral_movement'],
+        'mitre': ['T1021.002']
+    },
+    {
+        'name': 'Defense Evasion - Log Clearing',
+        'description': 'Detects attempts to clear event logs',
+        'logics': ['Event Log Cleared', 'Security Tool Disabled'],
+        'expression': 'L1 or L2',
+        'tags': ['defense_evasion'],
+        'mitre': ['T1070.001', 'T1562.001']
+    },
+    {
+        'name': 'Suspicious Process Masquerading',
+        'description': 'Detects processes masquerading as legitimate system processes',
+        'logics': ['Suspicious Process Name', 'Temp File Execution'],
+        'expression': 'L1 and L2',
+        'tags': ['defense_evasion'],
+        'mitre': ['T1036']
+    },
+    {
+        'name': 'C2 Communication Pattern',
+        'description': 'Detects command and control communication patterns',
+        'logics': ['Outbound Connection', 'C2 Communication', 'Suspicious User Agent'],
+        'expression': 'L1 and (L2 or L3)',
+        'tags': ['command_control'],
+        'mitre': ['T1071.001']
+    },
+    {
+        'name': 'Service-based Persistence',
+        'description': 'Detects persistence via service installation',
+        'logics': ['Service Installation', 'Registry Modification'],
+        'expression': 'L1 and L2',
+        'tags': ['persistence'],
+        'mitre': ['T1543.003']
+    },
+    {
+        'name': 'WMI Lateral Movement',
+        'description': 'Detects lateral movement using WMI',
+        'logics': ['WMI Execution', 'Process Creation', 'Outbound Connection'],
+        'expression': 'L1 and L2 and L3',
+        'tags': ['lateral_movement', 'execution'],
+        'mitre': ['T1047']
+    }
+]
+
+# Create rules with relationships
+for rule_data in rules_data:
+    rule = Rule.objects.create(
+        name=rule_data['name'],
+        description=rule_data['description'],
+        boolean_expression=rule_data['expression'],
+        is_enabled=True
+    )
+    
+    # Add logic units
+    for logic_name in rule_data['logics']:
+        try:
+            logic_unit = LogicUnit.objects.get(name=logic_name)
+            rule.logics.add(logic_unit)
+        except LogicUnit.DoesNotExist:
+            print(f"Logic unit '{logic_name}' not found for rule '{rule.name}'")
+    
+    # Add tags
+    for tag_name in rule_data['tags']:
+        try:
+            tag = RuleTag.objects.get(name=tag_name)
+            rule.tags.add(tag)
+        except RuleTag.DoesNotExist:
+            print(f"Tag '{tag_name}' not found for rule '{rule.name}'")
+    
+    # Add MITRE techniques
+    for tech_id in rule_data['mitre']:
+        try:
+            technique = MitreTechnique.objects.get(technique_id=tech_id)
+            rule.mitre_techniques.add(technique)
+        except MitreTechnique.DoesNotExist:
+            print(f"MITRE technique '{tech_id}' not found for rule '{rule.name}'")
+
+print(f"Created {MitreTechnique.objects.count()} MITRE techniques")
+print(f"Created {RuleTag.objects.count()} rule tags")
+print(f"Created {LogicUnit.objects.count()} logic units")
+print(f"Created {Rule.objects.count()} detection rules")
+print("Analysis engine populated successfully!")

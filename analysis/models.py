@@ -1,4 +1,4 @@
-# models/analysis.py (or analysis/models.py)
+# models/analysis.py
 from django.db import models
 from core.models import Artefact, LogRecord, Incident
 import re
