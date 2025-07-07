@@ -17,9 +17,11 @@ git clone https://github.com/admiralarjun/raid.git
 cd raid
 ```
 
+---
+
 ### 2. Configure Docker Compose
 
-Copy the sample file and modify it if needed:
+Copy the sample file and customize it for your environment:
 
 ```bash
 cp sample-docker-compose.yml docker-compose.yml
@@ -29,42 +31,43 @@ cp sample-docker-compose.yml docker-compose.yml
 
 ### 3. Build & Start the Application
 
-To build the images and launch the services:
-
+#### First time / after changes:
 ```bash
 docker compose up --build
 ```
 
-If you are restarting without dependency changes:
-
+#### For restarting without rebuilding:
 ```bash
 docker compose up
 ```
+
+This will:
+- Run DB migrations
+- Collect static files
+- Start the Django server on **http://localhost:8000/**
 
 ---
 
 ### 4. Create a Django Superuser
 
-Once the app is running, open a new terminal and run:
+In a separate terminal tab:
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-Follow the prompts to create your admin account.
-
 ---
 
 ### 5. Access the Application
 
-- **Incident Response Dashboard:** http://localhost:8000/
-- **Admin Panel:** http://localhost:8000/admin/
+- **Incident Response Dashboard:** [http://localhost:8000/](http://localhost:8000/)
+- **Admin Panel:** [http://localhost:8000/admin/](http://localhost:8000/admin/)
 
 ---
 
 ## 🔌 Stopping the Application
 
-Press `Ctrl+C` in the running terminal, or shut down the containers gracefully:
+Press `Ctrl+C`, or stop the services gracefully:
 
 ```bash
 docker compose down
@@ -74,13 +77,13 @@ docker compose down
 
 ## ⚙️ Notes
 
-- Requires Docker + Docker Compose installed.
-- Rebuild the containers when modifying dependencies or Dockerfile:
+- Requires **Docker** + **Docker Compose** installed.
+- Rebuild containers when dependencies or the Dockerfile changes:
 
 ```bash
 docker compose up --build
 ```
 
-- Customize environment variables and services inside `docker-compose.yml`.
+- Customize environment variables in your `docker-compose.yml`.
 
 ---

@@ -21,10 +21,9 @@ import json, os
 from google import genai
 from pydantic import BaseModel
 from django.views import View
+from django.conf import settings
 
-
-client = genai.Client(api_key=os.environ.get('AI_API_KEY'))
-
+client = genai.Client(api_key=settings.AI_API_KEY)
 
 class Highlight(BaseModel):
     record_index: int = Field(..., description="Index of the record in the artefact")

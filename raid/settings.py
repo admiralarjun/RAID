@@ -153,3 +153,5 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400
 
 TIME_ZONE = 'Asia/Kolkata'
 USE_TZ = True
+
+AI_API_KEY = os.environ.get("AI_API_KEY")
