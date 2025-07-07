@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:15
@@ -18,15 +20,21 @@ services:
     volumes:
       - .:/app
     environment:
+      - AI_API_KEY=xxxx
       - DEBUG=True
       - DB_NAME=raid_db
       - DB_USER=raid_user
       - DB_PASSWORD=raid_pass
       - DB_HOST=db
       - DB_PORT=5432
-      - AI_API_KEY=xxxx
     depends_on:
       - db
+    command: >
+      bash -c "
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      python manage.py runserver 0.0.0.0:8000
+      "
 
 volumes:
   postgres_data:
