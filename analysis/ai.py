@@ -12,18 +12,18 @@ from google import genai
 from google.genai import types
 
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 from google import genai
 from .gemini_schema import AILogicGroup
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-import json
+import json, os
 from google import genai
 from pydantic import BaseModel
 from django.views import View
 
 
-client = genai.Client(api_key="AIzaSyAJYEmM4pDiUWvJAw90nzAgEb81LfH9KcE")
+client = genai.Client(api_key=os.environ['AI_API_KEY'])
 
 
 
@@ -151,6 +151,21 @@ class Action(BaseModel):
     hypothesis_index: int = Field(..., description="Index of the related hypothesis")
     description: str = Field(..., description="Description of the recommended action")
 
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    type: str
+    icon: str  # Example: "fa fa-file-code"
+
+class GraphEdge(BaseModel):
+    source: str
+    target: str
+    relationship: Optional[str] = None
+
+class IncidentGraph(BaseModel):
+    nodes: List[GraphNode]
+    edges: List[GraphEdge]
+
 class IncidentAIOutput(BaseModel):
     incident_summary: str = Field(..., description="Cohesive overview of the incident")
     artefacts: List[ArtefactSummary] = Field(..., description="Individual artefact analyses")
@@ -158,15 +173,13 @@ class IncidentAIOutput(BaseModel):
     actions: List[Action] = Field(..., description="Next steps tied to each hypothesis")
     workflows: List[str] = Field(..., description="Adaptive playbook recommendations")
     gaps: List[str] = Field(..., description="Data or analysis gaps identified")
+    graph: IncidentGraph = Field(..., description="Graph representation of incident relationships")
 
 
 
-@require_POST
-@csrf_exempt
 def ai_incident_analysis(request, incident_id):
     incident = get_object_or_404(Incident, incident_id=incident_id)
 
-    # Gather latest artefact-level AIAnalysisResults
     artefact_summaries = []
     all_mitre = set()
 
@@ -249,7 +262,7 @@ def ai_incident_analysis(request, incident_id):
         incident=incident,
         summary=incident_output.incident_summary,
         prompt_used=prompt,
-        raw_response=resp.model_dump(),
+        raw_response={**resp.model_dump(), "graph": incident_output.graph.model_dump()},
         generated_at=timezone.now(),
     )
 
@@ -268,5 +281,81 @@ def ai_incident_analysis(request, incident_id):
                     description=action.description,
                     status='todo'
                 )
-                
+
+    # Generate correlation graph
+    incident_graph = generate_incident_correlation_graph(
+        incident=incident,
+        artefacts=artefact_summaries,
+        hypotheses=incident_output.hypotheses,
+        actions=incident_output.actions,
+        summary=incident_output.incident_summary,
+    )
+
+    # Update incident_output with the graph
+    incident_output.graph = incident_graph
+
     return JsonResponse({"incident_ai_result_id": ira.id, **incident_output.model_dump()})
+
+
+
+def generate_incident_correlation_graph(
+    incident: Incident,
+    artefacts: List[ArtefactSummary],
+    hypotheses: List[Hypothesis],
+    actions: List[Action],
+    summary: str,
+) -> IncidentGraph:
+    """
+    Builds a context-rich prompt and generates the graph using LLM.
+    """
+
+    # Construct the input text for the LLM
+    prompt = f"""
+    You are generating a cyber incident graph describing relationships between artefacts, attack hypotheses, and recommended actions.
+    
+    Incident Details:
+    - Incident ID: {incident.incident_id}
+    - Title: {incident.title}
+    - Summary: {summary}
+
+    Artefacts:
+    """
+    for art in artefacts:
+        prompt += f"- {art.name} ({art.artefact_type}): {art.summary}\n"
+
+    prompt += "\nHypotheses:\n"
+    for idx, hyp in enumerate(hypotheses):
+        prompt += f"- Hypothesis #{idx + 1}: {hyp.description}\n"
+        prompt += f"  Supporting Artefacts: {', '.join(hyp.artefacts)}\n"
+        prompt += f"  MITRE Techniques: {', '.join(hyp.mitre_techniques)}\n"
+
+    prompt += "\nActions:\n"
+    for act in actions:
+        prompt += f"- Action: {act.description} (Linked to Hypothesis #{act.hypothesis_index})\n"
+
+    prompt += """
+
+    Generate a directed graph capturing these relationships.
+    - Nodes: Artefacts, Hypotheses, and Actions.
+    - Edges: Show which artefacts support which hypotheses, and which actions address each hypothesis.
+    - Each node should have:
+      - A unique ID
+      - A short label
+      - A type (Artefact / Hypothesis / Action)
+      - A suitable icon (font-awesome class like 'fa fa-file', 'fa fa-lightbulb', 'fa fa-wrench').
+
+    Generate this graph structure as JSON compatible with the IncidentGraph schema.
+    """
+
+    # LLM Call
+    resp = genai.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config={"response_mime_type": "application/json"},
+    )
+
+    # Parse response
+    graph_data = json.loads(resp.text)
+    graph = IncidentGraph(**graph_data)
+
+    return graph

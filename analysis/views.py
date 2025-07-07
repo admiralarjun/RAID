@@ -247,7 +247,7 @@ def run_analysis(request):
                 resp = requests.post(url_inc, timeout=300)
                 if resp.ok:
                     incident_result_url = request.build_absolute_uri(reverse('core:incident_detail', args=[incident_id]))
-                    yield f'<p class="text-success"><i class="fa fa-check-circle"></i> Incident-level AI analysis completed. <a href="{incident_result_url}" target="_blank">View Incident Summary</a></p>\n'
+                    yield f'<p class="text-success"><i class="fa fa-check-circle"></i> Incident-level AI analysis completed. <a href="{incident_result_url}" target="_blank">View Incident</a></p>\n'
                 else:
                     yield f'<p class="text-danger"><i class="fa fa-times-circle"></i> Incident-level AI failed: {resp.status_code}</p>\n'
             except Exception as e:

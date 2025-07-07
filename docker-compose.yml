@@ -24,6 +24,7 @@ services:
       - DB_PASSWORD=raid_pass
       - DB_HOST=db
       - DB_PORT=5432
+      - AI_API_KEY=AIzaSyAJYEmM4pDiUWvJAw90nzAgEb81LfH9KcE
     depends_on:
       - db
 

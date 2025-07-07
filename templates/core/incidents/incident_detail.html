@@ -10,7 +10,7 @@
         <div class="flex-fill">
           <div class="d-flex align-items-center gap-2 mb-1">
             <i class="fa fa-exclamation-triangle text-warning"></i>
-            <h4 class="mb-0">{{ object.title }}</h4>
+            <h1 class="mb-0">{{ object.title }}</h1>
             <span class="badge bg-{{ object.status|yesno:"success,warning,danger" }} ms-2">{{ object.get_status_display }}</span>
             <span class="badge bg-{{ object.severity|yesno:"danger,warning,info" }}">{{ object.get_severity_display }}</span>
           </div>
@@ -39,6 +39,36 @@
     <div class="col-md-4">
       <small class="text-muted">Responders:</small> <strong>{{ object.responders.all|join:", "|default:"—" }}</strong>
     </div>
+  </div>
+
+
+    <!-- Full-Width Incident Analysis -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="fa fa-brain me-2"></i>Incident Analysis</h6>
+        </div>
+        <div class="card-body">
+          {% if incident_ai %}
+          
+              <h6>Summary</h6>
+              <p>{{ incident_ai.summary }}</p>
+              <small class="text-muted">Generated: {{ incident_ai.generated_at|date:"M d, H:i" }}</small>
+            </div>
+      
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fa fa-cog fa-3x mb-3"></i>
+            <h6>Incident AI Analysis Not Run Yet</h6>
+            <p class="mb-3">Run AI analysis to get incident-level insights and recommendations.</p>
+            <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
+              <i class="fa fa-play"></i> Start Analysis
+            </a>
+          </div>
+          {% endif %}
+        </div>
   </div>
 
   <!-- Full-Width Artefacts Section -->
@@ -124,81 +154,187 @@
     </div>
   </div>
 
-  <!-- Full-Width AI Analysis Summary -->
-  {% if object.artefacts.exists %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-header py-2">
-          <h6 class="mb-0"><i class="fa fa-robot me-2"></i>AI Analysis Summary</h6>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            {% for art in object.artefacts.all %}
-            {% with ai=artefact_ai|dict_get:art.id %}
-              {% if ai %}
-              <div class="col-xl-3 col-lg-4 col-md-6">
-                <div class="border rounded p-3 h-100">
-                  <h6 class="text-truncate">{{ art.name }}</h6>
-                  <p class="small text-muted mb-2">{{ art.get_artefact_type_display }}</p>
-                  <p class="mb-3">{{ ai.summary|truncatechars:120 }}</p>
-                  <a href="{% url 'analysis:artefact_result' art.id %}" class="btn btn-sm btn-outline-primary">
-                    View Full Analysis
-                  </a>
-                </div>
-              </div>
-              {% endif %}
-            {% endwith %}
-            {% empty %}
-            <div class="col-12 text-center text-muted">
-              <i class="fa fa-robot fa-2x mb-2"></i>
-              <p class="mb-2">No AI analysis available yet.</p>
-              <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
-                <i class="fa fa-play"></i> Start AI Analysis
-              </a>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 
-  <!-- Full-Width Incident Analysis -->
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-header py-2">
-          <h6 class="mb-0"><i class="fa fa-brain me-2"></i>Incident Analysis</h6>
-        </div>
-        <div class="card-body">
-          {% if incident_ai %}
-          <div class="row">
-            <div class="col-md-6">
-              <h6>Summary</h6>
-              <p>{{ incident_ai.summary }}</p>
-              <small class="text-muted">Generated: {{ incident_ai.generated_at|date:"M d, H:i" }}</small>
-            </div>
-            <div class="col-md-6">
-              <h6>Analysis Details</h6>
-              <p class="text-muted">Additional incident-level insights and recommendations.</p>
-            </div>
-          </div>
+<!-- Full-Width AI Analysis Summary -->
+{% if object.artefacts.exists %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+          <i class="fa fa-robot me-2"></i>AI Analysis Summary
+        </h6>
+        <a href="{% url 'analysis:start' %}" class="btn btn-sm btn-outline-primary">
+          <i class="fa fa-play me-1"></i> Re-run Analysis
+        </a>
+      </div>
+      <div class="card-body">
+        {% with count=object.artefacts.count %}
+          {% if count > 0 %}
+          <ul class="list-group list-group-flush">
+            {% for art in object.artefacts.all %}
+              {% with ai=artefact_ai|dict_get:art.id %}
+                {% if ai %}
+                <li class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap">
+                    <div class="me-3">
+                      <h5 class="mb-1">{{ art.name }}</h5>
+                      <p class="small text-muted mb-1">{{ art.get_artefact_type_display }}</p>
+                      <p class="mb-1">{{ ai.summary|truncatechars:150 }}</p>
+                    </div>
+                    <div class="mt-2">
+                      <a href="{% url 'analysis:artefact_result' art.id %}" class="btn btn-sm btn-outline-primary">
+                        View Full Analysis
+                      </a>
+                    </div>
+                  </div>
+                </li>
+                <hr class="my-0">
+                {% endif %}
+              {% endwith %}
+            {% empty %}
+              <li class="list-group-item text-center text-muted">
+                <i class="fa fa-robot fa-2x mb-2"></i>
+                <p class="mb-2">No AI analysis available yet.</p>
+              </li>
+            {% endfor %}
+          </ul>
           {% else %}
           <div class="text-center text-muted py-4">
-            <i class="fa fa-cog fa-3x mb-3"></i>
-            <h6>Incident AI Analysis Not Run Yet</h6>
-            <p class="mb-3">Run AI analysis to get incident-level insights and recommendations.</p>
+            <i class="fa fa-robot fa-2x mb-2"></i>
+            <p class="mb-2">No AI analysis available yet.</p>
             <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
-              <i class="fa fa-play"></i> Start Analysis
+              <i class="fa fa-play"></i> Start AI Analysis
             </a>
           </div>
           {% endif %}
-        </div>
+        {% endwith %}
       </div>
     </div>
   </div>
+</div>
+{% endif %}
+
+
+
+<!-- Correlation Graph -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card" style="background-color: var(--panel-bg); box-shadow: var(--shadow-card);">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background-color: var(--dark-bg);">
+        <h6 class="mb-0 text-accent">
+          <i class="fa fa-project-diagram me-2"></i>Artefact Correlation Graph
+        </h6>
+      </div>
+      <div class="card-body p-0" style="background-color: var(--darker-bg);">
+        <div id="correlation-graph" style="width: 100%; height: 500px; background-color: var(--dark-bg); border-radius: 6px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cytoscape.js + Dagre -->
+<script src="https://unpkg.com/cytoscape@3.24.0/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  cytoscape.use(window.cytoscapeDagre);
+
+  var cy = cytoscape({
+    container: document.getElementById('correlation-graph'),
+    elements: [
+      { data: { id: 'a1', label: 'Payload.exe' }, classes: 'artefact' },
+      { data: { id: 'a2', label: 'Phishing.docx' }, classes: 'artefact' },
+      { data: { id: 'h1', label: 'Initial Access Hypothesis' }, classes: 'hypothesis' },
+      { data: { id: 'c2', label: 'C2: 203.0.113.42' }, classes: 'c2' },
+      { data: { id: 'h2', label: 'Persistence Hypothesis' }, classes: 'hypothesis' },
+      { data: { id: 'a3', label: 'Scheduled Task' }, classes: 'artefact' },
+
+      { data: { source: 'a1', target: 'h1' }},
+      { data: { source: 'h1', target: 'c2' }},
+      { data: { source: 'a2', target: 'h1' }},
+      { data: { source: 'a3', target: 'h2' }},
+      { data: { source: 'h2', target: 'c2' }},
+    ],
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'label': 'data(label)',
+          'color': 'var(--text-primary)',
+          'background-color': 'var(--neon-blue)',
+          'shape': 'roundrectangle',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'font-size': '12px',
+          'text-outline-width': 2,
+          'text-outline-color': 'var(--dark-bg)',
+          'padding': '8px',
+          'box-shadow': 'var(--glow-primary)',
+          'transition-property': 'background-color, box-shadow',
+          'transition-duration': 'var(--transition-medium)'
+        }
+      },
+      {
+        selector: 'node.artefact',
+        style: {
+          'background-color': 'var(--neon-green)',
+          'box-shadow': '0 0 15px var(--neon-green)',
+        }
+      },
+      {
+        selector: 'node.hypothesis',
+        style: {
+          'background-color': 'var(--neon-purple)',
+          'box-shadow': '0 0 15px var(--neon-purple)',
+        }
+      },
+      {
+        selector: 'node.c2',
+        style: {
+          'background-color': 'var(--neon-orange)',
+          'box-shadow': '0 0 15px var(--neon-orange)',
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 2,
+          'line-color': 'var(--neon-cyan)',
+          'target-arrow-shape': 'triangle',
+          'target-arrow-color': 'var(--neon-cyan)',
+          'curve-style': 'bezier'
+        }
+      },
+      {
+        selector: ':selected',
+        style: {
+          'background-color': 'var(--neon-pink)',
+          'line-color': 'var(--neon-pink)',
+          'target-arrow-color': 'var(--neon-pink)',
+          'source-arrow-color': 'var(--neon-pink)',
+          'box-shadow': '0 0 20px var(--neon-pink)',
+        }
+      }
+    ],
+    layout: {
+      name: 'dagre',
+      rankDir: 'LR',
+      nodeSep: 50,
+      edgeSep: 20,
+      rankSep: 75,
+      animate: true,
+      animationDuration: 500
+    }
+  });
+});
+</script>
+
+
+
+
 
   <!-- Full-Width Hypotheses and Actions -->
   <div class="row mb-4">
@@ -213,7 +349,7 @@
             {% for h in hypotheses %}
             <div class="list-group-item">
               <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1">Hypothesis {{ forloop.counter }}</h6>
+                <h4 class="mb-1">Hypothesis #{{ forloop.counter }}</h4>
               </div>
               <p class="mb-1">{{ h.description }}</p>
               <small class="text-muted">
@@ -221,6 +357,7 @@
                 {% if h.mitre_techniques %}MITRE: {{ h.mitre_techniques|join:", " }}{% endif %}
               </small>
             </div>
+            <hr>
             {% endfor %}
           </div>
           {% else %}

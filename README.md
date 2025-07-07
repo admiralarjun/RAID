@@ -1,43 +1,86 @@
-# R.A.I.D
+# R.A.I.D.  
+### Respond | Assess | Investigate | Defend  
+**Enterprise-Ready Incident Response Platform**
 
-Respond, Assess, Investigate, Defend
+---
 
-Powering Enterprise Incident Response from Detection to Defense.
+R.A.I.D. empowers teams to detect, investigate, and respond to cyber incidents using an AI-augmented analysis engine and structured response workflows.
 
-This project uses Docker Compose for easy setup, building, and deployment.
+---
 
-## Getting Started
+## 🚀 Getting Started
 
-1. **Copy the sample Docker Compose file:**
+### 1. Clone the Repository
 
-    ```sh
-    cp sample-docker-compose.yml docker-compose.yml
-    ```
+```bash
+git clone https://github.com/admiralarjun/raid.git
+cd raid
+```
 
-2. **Build and start the application:**
+### 2. Configure Docker Compose
 
-    ```sh
-    docker compose up --build
-    ```
+Copy the sample file and modify it if needed:
 
-    This command will build all images and start the required services as defined in `docker-compose.yml`.
+```bash
+cp sample-docker-compose.yml docker-compose.yml
+```
 
-    If the container was brought down due to any reason apart from new dependancy changes, run
+---
 
-    ```sh
-    docker compose up
-    ```
+### 3. Build & Start the Application
 
-## Stopping the Application
+To build the images and launch the services:
 
-To stop the services, press `Ctrl+C` or run:
+```bash
+docker compose up --build
+```
 
-```sh
+If you are restarting without dependency changes:
+
+```bash
+docker compose up
+```
+
+---
+
+### 4. Create a Django Superuser
+
+Once the app is running, open a new terminal and run:
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+Follow the prompts to create your admin account.
+
+---
+
+### 5. Access the Application
+
+- **Incident Response Dashboard:** http://localhost:8000/
+- **Admin Panel:** http://localhost:8000/admin/
+
+---
+
+## 🔌 Stopping the Application
+
+Press `Ctrl+C` in the running terminal, or shut down the containers gracefully:
+
+```bash
 docker compose down
 ```
 
-## Notes
+---
 
-- Ensure Docker and Docker Compose are installed on your system.
-- Update `docker-compose.yml` as needed for your environment.
-- If you make changes to the Dockerfile or dependencies, rerun with `docker compose up --build` to rebuild the images.
+## ⚙️ Notes
+
+- Requires Docker + Docker Compose installed.
+- Rebuild the containers when modifying dependencies or Dockerfile:
+
+```bash
+docker compose up --build
+```
+
+- Customize environment variables and services inside `docker-compose.yml`.
+
+---
