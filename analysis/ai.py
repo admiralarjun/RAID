@@ -174,7 +174,7 @@ class IncidentAIOutput(BaseModel):
     graph: IncidentGraph = Field(..., description="Graph representation of incident relationships")
 
 
-
+@csrf_exempt
 def ai_incident_analysis(request, incident_id):
     incident = get_object_or_404(Incident, incident_id=incident_id)
 
@@ -284,14 +284,14 @@ def ai_incident_analysis(request, incident_id):
         actions=incident_output.actions,
         summary=incident_output.incident_summary,
     )
-
+    print(f"Generated Incident Graph for {incident.incident_id}:\n{incident_graph}")
     # Update incident_output with the graph
     ira.graph = incident_graph
 
     return JsonResponse({"incident_ai_result_id": ira.id, **incident_output.model_dump()})
 
 
-
+@csrf_exempt
 def generate_incident_correlation_graph(
     incident: Incident,
     artefacts: List[ArtefactSummary],
@@ -342,10 +342,13 @@ def generate_incident_correlation_graph(
     """
 
     # LLM Call
-    resp = genai.models.generate_content(
+    resp = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
-        config={"response_mime_type": "application/json"},
+        config={
+            "response_mime_type": "application/json",
+            "response_schema": IncidentGraph,
+        },
     )
 
     # Parse response
