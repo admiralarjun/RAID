@@ -33,12 +33,12 @@ cp sample-docker-compose.yml docker-compose.yml
 
 #### First time / after changes:
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
 #### For restarting without rebuilding:
 ```bash
-docker compose up
+docker compose up -d
 ```
 
 This will:
