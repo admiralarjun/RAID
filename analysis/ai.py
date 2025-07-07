@@ -23,8 +23,7 @@ from pydantic import BaseModel
 from django.views import View
 
 
-client = genai.Client(api_key=os.environ['AI_API_KEY'])
-
+client = genai.Client(api_key=os.environ.get('AI_API_KEY'))
 
 
 class Highlight(BaseModel):
