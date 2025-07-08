@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
   <h4>Log Record #{{ record.record_index }}</h4>
   <p><strong>Artefact:</strong> {{ record.artefact.name }}</p>
-  <pre class="bg-light p-3 border rounded">{{ record.content }}</pre>
+  <pre class="p-3 border rounded">{{ record.content }}</pre>
   <a href="{% url 'core:artefact_detail' pk=record.artefact.pk %}" class="btn btn-secondary mt-3">Back to Artefact</a>
 </div>
 {% endblock %}

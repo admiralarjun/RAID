@@ -171,7 +171,6 @@ class IncidentAIOutput(BaseModel):
     actions: List[Action] = Field(..., description="Next steps tied to each hypothesis")
     workflows: List[str] = Field(..., description="Adaptive playbook recommendations")
     gaps: List[str] = Field(..., description="Data or analysis gaps identified")
-    graph: IncidentGraph = Field(..., description="Graph representation of incident relationships")
 
 
 @csrf_exempt
@@ -256,7 +255,7 @@ def ai_incident_analysis(request, incident_id):
         incident=incident,
         summary=incident_output.incident_summary,
         prompt_used=prompt,
-        raw_response={**resp.model_dump(), "graph": incident_output.graph.model_dump()},
+        raw_response={**resp.model_dump()},
         generated_at=timezone.now(),
     )
 
@@ -285,8 +284,8 @@ def ai_incident_analysis(request, incident_id):
         summary=incident_output.incident_summary,
     )
     print(f"Generated Incident Graph for {incident.incident_id}:\n{incident_graph}")
-    # Update incident_output with the graph
-    ira.graph = incident_graph
+    ira.graph = incident_graph.model_dump()
+    ira.save()
 
     return JsonResponse({"incident_ai_result_id": ira.id, **incident_output.model_dump()})
 
