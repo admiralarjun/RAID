@@ -36,4 +36,9 @@ urlpatterns = [
     # === Log Records & Notes ===
     path('logs/<int:pk>/', views.LogRecordPermalinkView.as_view(), name='log_record_permalink'),
     path('artefacts/add-note/', views.AddArtefactNoteView.as_view(), name='add_artefact_note'),
+
+    # === Incident Reports ===
+    path('incidents/<str:incident_id>/export/pdf/', views.IncidentPDFExportView.as_view(), name='incident_export_pdf'),
+    path('incidents/<str:incident_id>/export/csv/', views.IncidentCSVExportView.as_view(), name='incident_export_csv'),
+
 ]

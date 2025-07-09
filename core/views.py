@@ -2,7 +2,13 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.shortcuts import get_object_or_404, render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.utils.timezone import localtime
+import csv
+from textwrap import shorten
+from fpdf import FPDF
+from datetime import datetime
+from django.template.loader import render_to_string
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
@@ -269,3 +275,282 @@ class AddArtefactNoteView(LoginRequiredMixin, View):
             content=content,
         )
         return redirect("core:artefact_detail", pk=artefact_id)
+
+class IncidentCSVExportView(LoginRequiredMixin, View):
+    def get(self, request, incident_id):
+        incident = Incident.objects.get(incident_id=incident_id)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="incident_{incident_id}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Incident ID', 'Title', 'Status', 'Severity'])
+        writer.writerow([incident.incident_id, incident.title, incident.get_status_display(), incident.get_severity_display()])
+
+        writer.writerow([])
+        writer.writerow(['Artefacts'])
+        writer.writerow(['Name', 'Type', 'Uploader', 'Uploaded', 'AI Status'])
+
+        for artefact in incident.artefacts.all():
+            ai_result = artefact.ai_results.order_by('-generated_at').first()
+            writer.writerow([
+                artefact.name,
+                artefact.get_artefact_type_display(),
+                str(artefact.uploaded_by),
+                artefact.uploaded_at,
+                'Analyzed' if ai_result else 'Pending'
+            ])
+
+        return response
+    
+
+    
+# Full Incident Report PDF Generator - Extended
+
+
+class KPMGIncidentReportPDF(FPDF):
+    def __init__(self, title="Incident Response Report"):
+        super().__init__()
+        self.title = title
+        self.set_auto_page_break(auto=True, margin=15)
+
+    def clean_text(self, text):
+        """Clean and replace Unicode characters not supported by Latin-1."""
+        if not text:
+            return ""
+        replacements = {
+            '\u2013': '-', '\u2014': '-',  # Dashes
+            '\u2018': "'", '\u2019': "'",  # Single quotes
+            '\u201c': '"', '\u201d': '"',  # Double quotes
+            '\xa0': ' ',                   # Non-breaking space
+        }
+        for bad, good in replacements.items():
+            text = text.replace(bad, good)
+        return str(text).encode('latin-1', errors='replace').decode('latin-1')
+
+    def header(self):
+        self.set_fill_color(0, 51, 102)
+        self.rect(0, 0, 210, 20, 'F')
+
+        self.set_text_color(255, 255, 255)
+        self.set_font('Helvetica', 'BI', 14)
+        self.cell(0, 10, self.clean_text("KPMG Cybersecurity"), ln=True, align='L')
+
+        self.set_font('Helvetica', 'B', 12)
+        self.cell(0, 5, self.clean_text(self.title), ln=True, align='L')
+        self.ln(5)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Helvetica', 'I', 8)
+        self.set_text_color(128, 128, 128)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.cell(0, 10, self.clean_text(f'Page {self.page_no()} | Generated on {timestamp}'), 0, 0, 'C')
+    
+    
+    def add_horizontal_rule(self, thickness=0.5, y_offset=2):
+        """Draws a horizontal line across the page."""
+        x1 = 10
+        x2 = 200
+        y = self.get_y() + y_offset
+        self.set_line_width(thickness)
+        self.line(x1, y, x2, y)
+
+    def add_section_header(self, title):
+        """Primary section header with background and horizontal rule."""
+        self.set_fill_color(0, 51, 102)
+        self.set_text_color(255, 255, 255)
+        self.set_font('Helvetica', 'B', 12)
+        self.cell(0, 8, self.clean_text(f"  {title}"), ln=True, fill=True)
+        self.set_text_color(0, 0, 0)
+        self.ln(4)
+
+    def add_subsection_header(self, subtitle):
+        """Secondary subsection header with horizontal rule."""
+        self.set_font('Helvetica', 'B', 10)
+        self.set_text_color(0, 51, 102)
+        self.add_horizontal_rule(thickness=0.3, y_offset=0.5)  # Slightly thinner line for subsection
+        self.cell(0, 6, self.clean_text(subtitle), ln=True)
+        self.set_text_color(0, 0, 0)
+        self.ln(2)
+
+    def add_key_value_pair(self, key, value):
+        self.set_font('Helvetica', 'B', 10)
+        self.cell(50, 7, self.clean_text(f"{key}:"), ln=False)
+
+        self.set_font('Helvetica', '', 10)
+        self.multi_cell(0, 7, self.clean_text(str(value) if value else "N/A"))
+
+    def add_information_section(self, title, content):
+        # Section Title
+        self.set_font('Helvetica', 'B', 11)
+        self.set_text_color(0, 51, 102)
+        self.multi_cell(0, 7, self.clean_text(title))
+        self.ln(1)
+
+        # Content
+        self.set_font('Helvetica', '', 10)
+        self.set_text_color(0, 0, 0)
+        self.multi_cell(0, 6, self.clean_text(content))
+        self.ln(4)
+
+    def add_table_header(self, headers, col_widths):
+        self.set_fill_color(200, 200, 200)
+        self.set_font('Helvetica', 'B', 9)
+        for i, header in enumerate(headers):
+            self.cell(col_widths[i], 7, self.clean_text(header), 1, 0, 'C', True)
+        self.ln()
+
+    def add_table_row(self, values, col_widths, alternate_row=False):
+        self.set_fill_color(245, 245, 245) if alternate_row else self.set_fill_color(255, 255, 255)
+        self.set_font('Helvetica', '', 9)
+        for i, value in enumerate(values):
+            self.cell(col_widths[i], 6, self.clean_text(str(value))[:30], 1, 0, 'L', True)
+        self.ln()
+
+    def add_bullet_point(self, text, indent=0):
+        self.set_font('Helvetica', '', 10)
+        self.cell(indent * 10, 6, '', ln=False)
+        self.cell(5, 6, '-', ln=False)
+        self.multi_cell(0, 6, self.clean_text(str(text)))
+
+class FullIncidentReportPDF(KPMGIncidentReportPDF):
+    def add_incident_details(self, incident):
+        self.add_section_header("Incident Details")
+        self.add_key_value_pair("Incident ID", incident.incident_id)
+        self.add_key_value_pair("Title", incident.title)
+        self.add_key_value_pair("Description", incident.description)
+        self.add_key_value_pair("Status", incident.get_status_display())
+        self.add_key_value_pair("Severity", incident.get_severity_display())
+        self.add_key_value_pair("Client", incident.client.name)
+        self.add_key_value_pair("Organization", incident.client.organization)
+        self.add_key_value_pair("Incident Manager", incident.incident_manager)
+        self.add_key_value_pair("Lead Responder", incident.lead_responder or "Not Assigned")
+        self.add_key_value_pair("Response Team", ", ".join(str(r) for r in incident.responders.all()) or "Not Assigned")
+        self.add_key_value_pair("Reported Date", localtime(incident.created_at).strftime('%d %B %Y at %H:%M'))
+        if incident.accepted_at:
+            self.add_key_value_pair("Accepted At", localtime(incident.accepted_at).strftime('%d %B %Y at %H:%M'))
+        if incident.closed_at:
+            self.add_key_value_pair("Closed At", localtime(incident.closed_at).strftime('%d %B %Y at %H:%M'))
+        self.add_key_value_pair("Client Can View Analysis", incident.client_can_view_analysis)
+        self.add_key_value_pair("Client Can View Reports", incident.client_can_view_reports)
+
+    def add_executive_summary_box(self, incident):
+        summary_text = (
+            f"Incident '{incident.title}' (ID: {incident.incident_id}) was reported by {incident.client.name}. "
+            f"It is categorized as {incident.get_severity_display()} severity and is currently {incident.get_status_display()}.\n\n"
+            f"Lead Responder: {incident.lead_responder or 'Not Assigned'}\n"
+            f"Total Artefacts: {incident.artefacts.count()}\n"
+            f"Response Team: {', '.join(str(r) for r in incident.responders.all()) or 'Not Assigned'}"
+        )
+        self.add_information_section("Executive Summary", summary_text)
+
+    def add_client_contact_details(self, client):
+        self.add_section_header("Client Contact Details")
+        self.add_key_value_pair("Client Name", client.name)
+        self.add_key_value_pair("Organization", client.organization)
+        self.add_key_value_pair("Contact Person", client.contact_person)
+        self.add_key_value_pair("Email", client.email)
+        self.add_key_value_pair("Phone", client.phone)
+        self.add_key_value_pair("Address", client.address)
+
+    def add_artefact_notes(self, artefact):
+        notes = artefact.notes.all()
+        if notes:
+            self.add_subsection_header(f"Notes for Artefact: {artefact.name}")
+            for note in notes:
+                author = note.author or "Unknown"
+                self.add_bullet_point(f"{author}: {note.content}")
+
+    def add_rule_matches(self, artefact):
+        rule_matches = artefact.rule_matches.select_related('rule').all()
+        if rule_matches:
+            self.add_subsection_header(f"Detection Summary for Artefact: {artefact.name}")
+            for match in rule_matches:
+                self.add_bullet_point(f"Rule: {match.rule.name} on Record {match.log_record.record_index} at {match.matched_at:%Y-%m-%d %H:%M}")
+
+    def add_ai_analysis_details(self, ai_result):
+        self.add_section_header("AI Detailed Analysis")
+        self.add_key_value_pair("Narrative", ai_result.narrative)
+        if ai_result.highlights:
+            highlights = "\n".join([f"Line {h['record_index']}: {h['excerpt']} - {h['reason']}" for h in ai_result.highlights])
+            self.add_horizontal_rule(thickness=0.3, y_offset=1)
+            self.add_information_section("Key Highlights", highlights)
+        if ai_result.references:
+            references = "\n".join([f"Rule {r['rule_name']} on Record {r['record_index']} ({', '.join(r.get('mitre_techniques', []))})" for r in ai_result.references])
+            self.add_horizontal_rule(thickness=0.3, y_offset=1)
+            self.add_information_section("References", references)
+
+class IncidentPDFExportView(LoginRequiredMixin, View):
+    def get(self, request, incident_id):
+        incident = Incident.objects.prefetch_related(
+            'artefacts__notes',
+            'artefacts__rule_matches__rule',
+            'artefacts__ai_results',
+            'ai_incident_results__hypotheses__actions',
+        ).select_related('client', 'incident_manager', 'lead_responder').get(incident_id=incident_id)
+
+        incident_ai = incident.ai_incident_results.order_by('-generated_at').first()
+
+        pdf = FullIncidentReportPDF(title=incident.title)
+        pdf.add_page()
+
+        # Executive Summary
+        pdf.add_executive_summary_box(incident)
+
+        # Incident Details
+        pdf.add_incident_details(incident)
+
+        # Client Contact
+        pdf.add_client_contact_details(incident.client)
+
+        # Artefacts Section
+        pdf.add_section_header("Evidence & Artefacts")
+        for artefact in incident.artefacts.all():
+            pdf.add_key_value_pair("Artefact", artefact.name)
+            pdf.add_key_value_pair("Type", artefact.get_artefact_type_display())
+            pdf.add_key_value_pair("Uploaded By", artefact.uploaded_by or "Unknown")
+            pdf.add_key_value_pair("Assigned To", artefact.assigned_to or "Not Assigned")
+            pdf.add_key_value_pair("Parsed", artefact.parsed)
+            pdf.add_key_value_pair("Uploaded At", localtime(artefact.uploaded_at).strftime('%d/%m/%Y'))
+
+            ai_result = artefact.ai_results.order_by('-generated_at').first()
+            if ai_result:
+                pdf.add_ai_analysis_details(ai_result)
+
+            pdf.add_artefact_notes(artefact)
+            pdf.add_rule_matches(artefact)
+            pdf.ln(5)
+
+        # Threat Hypotheses Section
+        if incident_ai:
+            pdf.add_section_header("Threat Hypotheses")
+            for i, h in enumerate(incident_ai.hypotheses.all(), 1):
+                pdf.set_font('Helvetica', 'B', 11)
+                pdf.multi_cell(0, 7, pdf.clean_text(f"Hypothesis {i}: {h.description}"))
+
+                # Artefacts and MITRE Techniques (use cell, not multi_cell)
+                if h.artefacts:
+                    pdf.add_key_value_pair("Related Artefacts", ", ".join(h.artefacts))
+                if h.mitre_techniques:
+                    pdf.add_key_value_pair("MITRE Techniques", ", ".join(h.mitre_techniques))
+
+                # Actions (use single cell or clean text inside multi_cell)
+                actions = h.actions.all()
+                if actions.exists():
+                    pdf.add_subsection_header("Response Actions")
+                    for act in actions:
+                        action_text = f"{act.description} [{act.get_status_display()}]"
+                        pdf.set_font('Helvetica', '', 10)
+                        pdf.multi_cell(0, 6, pdf.clean_text(action_text))  # OR use cell() if single-line
+
+        # Confidentiality Footer
+        pdf.ln(10)
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(128, 128, 128)
+        pdf.multi_cell(0, 5, "This report contains confidential and privileged information.")
+
+        # HTTP Response
+        response = HttpResponse(pdf.output(dest='S').encode('latin1'), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="Incident_Report_{incident_id}.pdf"'
+        return response
+    

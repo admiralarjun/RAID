@@ -1,10 +1,11 @@
 # Django Core
 Django>=4.2,<5.0  # Keep below 5.x for wider plugin compatibility unless you're testing with 5.x
 
-# Forms and UI
+# Forms, UI Reporting
 django-crispy-forms
 crispy-bootstrap5
 django-widget-tweaks
+fpdf
 
 # HTMX Integration
 django-htmx

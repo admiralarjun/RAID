@@ -13,6 +13,14 @@
             <h1 class="mb-0">{{ object.title }}</h1>
             <span class="badge bg-{{ object.status|yesno:"success,warning,danger" }} ms-2">{{ object.get_status_display }}</span>
             <span class="badge bg-{{ object.severity|yesno:"danger,warning,info" }}">{{ object.get_severity_display }}</span>
+            <div>
+              <a href="{% url 'core:incident_export_pdf' incident.incident_id %}" target="_blank" class="btn btn-outline-primary btn-sm">
+                  <i class="fa fa-file-pdf"></i> Export PDF
+              </a>
+              <a href="{% url 'core:incident_export_csv' incident.incident_id %}" target="_blank" class="btn btn-outline-secondary btn-sm">
+                  <i class="fa fa-file-csv"></i> Export CSV
+              </a>
+            </div>
           </div>
           <small class="text-muted">#{{ object.incident_id }} | {{ object.client.name }}</small>
         </div>
