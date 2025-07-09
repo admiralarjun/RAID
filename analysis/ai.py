@@ -327,7 +327,6 @@ def generate_incident_correlation_graph(
         prompt += f"- Action: {act.description} (Linked to Hypothesis #{act.hypothesis_index})\n"
 
     prompt += """
-
     Generate a directed graph capturing these relationships.
     - Nodes: Artefacts, Hypotheses, and Actions.
     - Edges: Show which artefacts support which hypotheses, and which actions address each hypothesis.
@@ -336,8 +335,6 @@ def generate_incident_correlation_graph(
       - A short label
       - A type (Artefact / Hypothesis / Action)
       - A suitable icon (font-awesome class like 'fa fa-file', 'fa fa-lightbulb', 'fa fa-wrench').
-
-    Generate this graph structure as JSON compatible with the IncidentGraph schema.
     """
 
     # LLM Call
