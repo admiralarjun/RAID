@@ -13,8 +13,6 @@ from google.genai import types
 
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
-from google import genai
-from .gemini_schema import AILogicGroup
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json, os
