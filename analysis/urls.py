@@ -1,3 +1,4 @@
+# analysis/urls.py
 from django.urls import path
 from . import views
 from analysis.ai import ai_artefact_analysis, ai_incident_analysis

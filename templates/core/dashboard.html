@@ -1,7 +1,367 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="container-fluid mt-5">
-  <h2>Welcome to RAID Incident Dashboard</h2>
-  <p>Hello, {{ user.username }}!</p>
+<div class="container-fluid mt-4">
+    <!-- Welcome Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="text-primary mb-1">
+                        <i class="fas fa-shield-alt me-2"></i>RAID Incident Dashboard
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Welcome back, {{ user.username|capfirst }}! Here’s a quick overview of your incidents and analyses.
+                    </p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Last updated: {{ "now"|date:"M d, Y H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-primary mb-1">{{ total_incidents }}</h3>
+                            <p class="text-muted mb-0">Total Incidents</p>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-warning mb-1">{{ active_incidents }}</h3>
+                            <p class="text-muted mb-0">Active Incidents</p>
+                        </div>
+                        <i class="fas fa-clock fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-danger mb-1">{{ critical_incidents }}</h3>
+                            <p class="text-muted mb-0">Critical Incidents</p>
+                        </div>
+                        <i class="fas fa-fire fa-2x text-danger opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-success mb-1">{{ total_clients }}</h3>
+                            <p class="text-muted mb-0">Active Clients</p>
+                        </div>
+                        <i class="fas fa-users fa-2x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-info mb-1">{{ total_artefacts }}</h3>
+                            <p class="text-muted mb-0">Total Artefacts</p>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-secondary">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-secondary mb-1">{{ pending_analysis }}</h3>
+                            <p class="text-muted mb-0">Pending Analysis</p>
+                        </div>
+                        <i class="fas fa-hourglass-half fa-2x text-secondary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-success mb-1">{{ total_ai_analyses }}</h3>
+                            <p class="text-muted mb-0">AI Analyses</p>
+                        </div>
+                        <i class="fas fa-robot fa-2x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-dark">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="text-dark mb-1">{{ recent_detections|length }}</h3>
+                            <p class="text-muted mb-0">Recent Detections</p>
+                        </div>
+                        <i class="fas fa-search fa-2x text-dark opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Priority Incidents -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Priority Incidents
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if priority_incidents %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Incident ID</th>
+                                        <th>Title</th>
+                                        <th>Client</th>
+                                        <th>Severity</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for incident in priority_incidents %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'core:incident_detail' incident.incident_id %}" class="text-decoration-none">
+                                                {{ incident.incident_id }}
+                                            </a>
+                                        </td>
+                                        <td>{{ incident.title|truncatechars:30 }}</td>
+                                        <td>{{ incident.client.name }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if incident.severity == 'critical' %}danger{% elif incident.severity == 'high' %}warning{% else %}info{% endif %}">
+                                                {{ incident.get_severity_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if incident.status == 'closed' %}success{% elif incident.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                                                {{ incident.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ incident.created_at|date:"M d, Y" }}</td>
+                                        <td>
+                                            <a href="{% url 'core:incident_detail' incident.incident_id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <p class="text-muted">No priority incidents at the moment!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Recent Incidents</h6>
+                            {% if recent_incidents %}
+                                <div class="list-group list-group-flush">
+                                    {% for incident in recent_incidents %}
+                                    <div class="list-group-item border-0 px-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ incident.incident_id }}</strong>
+                                                <p class="mb-1 text-muted">{{ incident.title|truncatechars:40 }}</p>
+                                                <small class="text-muted">{{ incident.client.name }}</small>
+                                            </div>
+                                            <small class="text-muted">{{ incident.created_at|timesince }} ago</small>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No recent incidents</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Recent Artefacts</h6>
+                            {% if recent_artefacts %}
+                                <div class="list-group list-group-flush">
+                                    {% for artefact in recent_artefacts %}
+                                    <div class="list-group-item border-0 px-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ artefact.name|truncatechars:30 }}</strong>
+                                                <p class="mb-1 text-muted">{{ artefact.get_artefact_type_display }}</p>
+                                                <small class="text-muted">{{ artefact.incident.incident_id }}</small>
+                                            </div>
+                                            <small class="text-muted">{{ artefact.uploaded_at|timesince }} ago</small>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No recent artefacts</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'core:incident_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create New Incident
+                        </a>
+                        <a href="{% url 'core:artefact_create' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-upload me-2"></i>Upload Artefact
+                        </a>
+                        <a href="{% url 'core:client_create' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-user-plus me-2"></i>Add Client
+                        </a>
+                        <a href="{% url 'analysis:start' %}" class="btn btn-outline-success">
+                            <i class="fas fa-play me-2"></i>Start Analysis
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Incidents -->
+            {% if my_incidents %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-check me-2"></i>My Incidents
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for incident in my_incidents %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ incident.incident_id }}</strong>
+                                    <p class="mb-1 text-muted">{{ incident.title|truncatechars:35 }}</p>
+                                    <span class="badge bg-{% if incident.severity == 'critical' %}danger{% elif incident.severity == 'high' %}warning{% else %}info{% endif %}">
+                                        {{ incident.get_severity_display }}
+                                    </span>
+                                </div>
+                                <a href="{% url 'core:incident_detail' incident.incident_id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Status Overview -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Status Overview
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for status, count in status_breakdown.items %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">{{ status|title }}</span>
+                        <span class="badge bg-{% if status == 'closed' %}success{% elif status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                            {{ count }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recent Detections -->
+            {% if recent_detections %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>Recent Detections
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for detection in recent_detections %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ detection.rule.name|truncatechars:30 }}</strong>
+                                    <p class="mb-1 text-muted">{{ detection.artefact.name|truncatechars:25 }}</p>
+                                    <small class="text-muted">Record #{{ detection.log_record.record_index }}</small>
+                                </div>
+                                <small class="text-muted">{{ detection.matched_at|timesince }} ago</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

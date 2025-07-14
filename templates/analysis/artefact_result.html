@@ -56,8 +56,8 @@
         {% for h in ai_artefact_analysis_result.highlights %}
         <tr>
           <td>
-          <a href="{% url 'core:log_record_permalink' h.record_index %}" class="text-decoration-none">
-            # {{ h.record_index }}
+          <a href="{% url 'core:log_record_permalink' h.log_index %}" class="text-decoration-none">
+            # {{ h.log_index }}
           </a>
           </td>
           <td class="fst-italic">{{ h.excerpt }}</td>
@@ -80,7 +80,7 @@
           <br>
           Match: <span class="text-muted">#{{ r.rule_match_id }}</span>,
           <a href="{% url 'core:log_record_permalink' r.record_index %}" class="text-decoration-none">
-            <i class="fas fa-link text-primary me-1"></i>Record {{ r.record_index }}
+            <i class="fas fa-link text-primary me-1"></i>Record {{ r.log_index }}
           </a>
           {% if r.mitre_techniques %}
           <div class="mt-1">

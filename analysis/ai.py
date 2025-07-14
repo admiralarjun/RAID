@@ -25,7 +25,7 @@ client = genai.Client(api_key=settings.AI_API_KEY)
 
 class Highlight(BaseModel):
     record_index: int = Field(..., description="Index of the record in the artefact")
-    log_index: str = Field(..., description="Unique identifier for the log entry")
+    log_index: int = Field(..., description="Unique identifier for the log entry")
     excerpt: str = Field(..., description="Relevant excerpt from the record")
     reason: str = Field(..., description="Explanation for why this highlight is important")
 
@@ -77,7 +77,7 @@ def ai_artefact_analysis(request, artefact_id):
             'rule_match_id': rm.id,
             'rule_name': rm.rule.name,
             'record_index': rm.log_record.record_index,
-            'log_index': rm.log_record.id,
+            'log_index': rm.log_record.pk,
             'mitre_techniques': [t.technique_id for t in rm.rule.mitre_techniques.all()]
         })
     logic_map = {}
@@ -228,6 +228,7 @@ def ai_incident_analysis(request, incident_id):
     - A clear description.
     - The artefacts supporting this hypothesis (list artefact names).
     - Mapped MITRE techniques (ATT&CK IDs) supporting your reasoning.
+    - System and user information which got compromised to identify the initial access/entry point and support it with timestamps.
 
     3. **actions:** For each hypothesis, list recommended actions. Specify whether the action is investigative, containment-related, or requires further analysis. Link each action to the corresponding hypothesis using its index.
 

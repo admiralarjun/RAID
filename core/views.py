@@ -22,11 +22,79 @@ from .utils import infer_artefact_type
 from django.shortcuts import redirect
 
 
-# === Dashboard View ===
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
+from .models import Incident, Artefact, Client, UserProfile
+from analysis.models import RuleMatch, AIAnalysisResult, IncidentAnalysisResult
 
+
+# === Dashboard View ===
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "core/dashboard.html"
-
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get user profile for role-based content
+    
+        
+        # === KEY METRICS ===
+        context['total_incidents'] = Incident.objects.count()
+        context['active_incidents'] = Incident.objects.exclude(status='closed').count()
+        context['critical_incidents'] = Incident.objects.filter(severity='critical').exclude(status='closed').count()
+        context['total_clients'] = Client.objects.filter(is_active=True).count()
+        context['total_artefacts'] = Artefact.objects.count()
+        context['pending_analysis'] = Artefact.objects.filter(ai_results__isnull=True).count()
+        
+        # === RECENT ACTIVITY ===
+        # Recent incidents (last 7 days)
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        context['recent_incidents'] = Incident.objects.filter(
+            created_at__gte=seven_days_ago
+        ).select_related('client', 'incident_manager').order_by('-created_at')[:5]
+        
+        # Recent artefacts uploaded
+        context['recent_artefacts'] = Artefact.objects.filter(
+            uploaded_at__gte=seven_days_ago
+        ).select_related('incident', 'uploaded_by').order_by('-uploaded_at')[:5]
+        
+        # Recent rule matches (security detections)
+        context['recent_detections'] = RuleMatch.objects.filter(
+            matched_at__gte=seven_days_ago
+        ).select_related('rule', 'artefact', 'log_record').order_by('-matched_at')[:5]
+        
+        # === STATUS BREAKDOWN ===
+        status_counts = Incident.objects.values('status').annotate(count=Count('id'))
+        context['status_breakdown'] = {item['status']: item['count'] for item in status_counts}
+        
+        # === SEVERITY BREAKDOWN ===
+        severity_counts = Incident.objects.values('severity').annotate(count=Count('id'))
+        context['severity_breakdown'] = {item['severity']: item['count'] for item in severity_counts}
+   
+        # === ANALYSIS STATS ===
+        context['total_ai_analyses'] = AIAnalysisResult.objects.count()
+        context['incident_analyses'] = IncidentAnalysisResult.objects.count()
+        
+        # Recent AI analyses
+        context['recent_ai_analyses'] = AIAnalysisResult.objects.select_related(
+            'artefact', 'artefact__incident'
+        ).order_by('-generated_at')[:5]
+        
+        # === PRIORITY INCIDENTS ===
+        context['priority_incidents'] = Incident.objects.filter(
+            Q(severity='critical') | Q(severity='high')
+        ).exclude(status='closed').select_related('client', 'incident_manager').order_by('-created_at')[:5]
+        
+        # === WORKLOAD DISTRIBUTION ===
+        context['analyst_workload'] = UserProfile.objects.filter(
+            role__in=['incident_responder', 'lead_responder']
+        ).annotate(
+            active_incidents=Count('user__assigned_incidents', filter=Q(user__assigned_incidents__status__in=['accepted', 'in_progress']))
+        ).order_by('-active_incidents')[:5]
+        
+        return context
 
 # === Incident Views ===
 

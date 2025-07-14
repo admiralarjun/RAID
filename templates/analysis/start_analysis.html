@@ -25,13 +25,13 @@
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
                         <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center active" 
-                           onclick="filterByIncident('all')">
+                           id="filter-all" onclick="filterByIncident('all')">
                             All Incidents
                             <span class="badge bg-primary rounded-pill">{{ artefacts|length }}</span>
                         </a>
                         {% for incident in incidents %}
                         <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
-                           onclick="filterByIncident({{ incident.id }})">
+                           id="filter-{{ incident.id }}" onclick="filterByIncident({{ incident.id }})">
                             {{ incident.title|truncatechars:25 }}
                             <span class="badge bg-secondary rounded-pill">{{ incident.artefact_count }}</span>
                         </a>
@@ -69,6 +69,9 @@
                             <table class="table table-hover mb-0" id="artefact-table">
                                 <thead>
                                     <tr>
+                                        <th>
+                                            <input type="checkbox" class="form-check-input" id="select-all-checkbox">
+                                        </th>
                                         <th>Artefact</th>
                                         <th>Incident</th>
                                         <th>Type</th>
@@ -79,10 +82,11 @@
                                 <tbody>
                                     {% for artefact in artefacts %}
                                     <tr class="artefact-row" data-incident="{{ artefact.incident.id }}">
-                                    
                                         <td>
                                             <input type="checkbox" class="form-check-input artefact-checkbox" 
                                                    name="artefact_ids" value="{{ artefact.id }}">
+                                        </td>
+                                        <td>
                                             <strong>{{ artefact.name }}</strong>
                                             {% if artefact.description %}
                                             <p class="small text-muted mb-0">{{ artefact.description|truncatechars:50 }}</p>
@@ -106,7 +110,7 @@
 
                 <!-- Rule Summary Card -->
                 <div class="card mb-4">
-                    <div class="card-header bg d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Selected Rules</h5>
                         <div>
                             <span class="badge bg-primary rounded-pill" id="selected-rule-count">0</span>
@@ -117,7 +121,7 @@
                             <span class="text-muted">No rules selected</span>
                         </div>
                     </div>
-                    <div class="card-footer bg d-flex justify-content-end">
+                    <div class="card-footer d-flex justify-content-end">
                         <button type="submit" class="btn btn-primary" id="run-analysis-btn" disabled>
                             <i class="fas fa-play me-1"></i> Run Analysis
                         </button>
@@ -133,11 +137,10 @@
 <div class="modal fade" id="ruleSelectModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg">
+            <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-tasks me-2"></i>Select Analysis Rules
                 </h5>
-
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -178,11 +181,12 @@
                 <!-- Rules Table -->
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle">
-                        <thead class="table">
+                        <thead class="table-light">
                             <tr>
                                 <th width="40px"></th>
                                 <th>Rule</th>
                                 <th>Description</th>
+                                <th>Severity</th>
                                 <th>Tags</th>
                                 <th>Logics</th>
                             </tr>
@@ -208,8 +212,13 @@
                                 </td>
                                 <td>{{ rule.description|truncatechars:60 }}</td>
                                 <td>
+                                    <span class="badge bg-{% if rule.severity == 'critical' %}danger{% elif rule.severity == 'high' %}warning{% elif rule.severity == 'medium' %}info{% elif rule.severity == 'low' %}secondary{% else %}light{% endif %}">
+                                        {{ rule.severity|title }}
+                                    </span>
+                                </td>
+                                <td>
                                     {% for tag in rule.tags.all %}
-                                    <span class="badge bg-white text-dark border">{{ tag.name }}</span>
+                                    <span class="badge bg-light text-dark border me-1">{{ tag.name }}</span>
                                     {% endfor %}
                                 </td>
                                 <td>
@@ -222,7 +231,7 @@
                                 </td>
                             </tr>
                             <tr class="collapse" id="logics-{{ rule.id }}">
-                                <td colspan="6" class="bg">
+                                <td colspan="6" class="bg-light">
                                     <div class="p-3">
                                         <div class="row">
                                             {% for logic in rule.logics.all %}
@@ -250,7 +259,7 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer bg">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Cancel
                 </button>
@@ -266,15 +275,15 @@
 <div class="modal fade" id="analysisProgressModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary">
-                <h5 class="modal-title">Analysis</h5>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Analysis Progress</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="card">
                     <div class="card-body p-0">
                         <div id="analysis-status" class="p-3 mb-0" 
-     style="height: 300px; overflow-y: auto; font-family: monospace;"></div>
-
+                             style="height: 300px; overflow-y: auto; font-family: monospace; background-color: #f8f9fa;"></div>
                     </div>
                 </div>
                 <div id="results-section" class="mt-3 d-none">
@@ -289,6 +298,10 @@
 
 {% block extra_scripts %}
 <script>
+// Global variables to track current state
+let currentIncidentFilter = 'all';
+let isSearchActive = false;
+
 // Safe element access helper
 function getElementSafe(id) {
     const el = document.getElementById(id);
@@ -308,10 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = getElementSafe('select-all-checkbox');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.artefact-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
+            selectAllArtefacts(this.checked);
         });
     }
 
@@ -320,14 +330,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (artefactSearch) {
         artefactSearch.addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('.artefact-row');
-            
-            rows.forEach(row => {
-                if (row.style.display === 'none' && row.dataset.incident !== 'all') return;
-                
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
+            isSearchActive = searchTerm.length > 0;
+            filterArtefacts();
         });
     }
 
@@ -339,18 +343,116 @@ document.addEventListener('DOMContentLoaded', function() {
     if (ruleSearch) ruleSearch.addEventListener('input', filterRules);
     if (tagFilter) tagFilter.addEventListener('change', filterRules);
     if (severityFilter) severityFilter.addEventListener('change', filterRules);
+
+    // Add event listeners to rule checkboxes
+    document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateRuleSelectionUI);
+    });
+
+    // Add event listeners to artefact checkboxes
+    document.querySelectorAll('.artefact-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAllCheckbox);
+    });
 });
 
-// Artefact table filtering
-function filterByIncident(incidentId) {
+// Enhanced artefact filtering
+function filterArtefacts() {
+    const searchTerm = getElementSafe('artefact-search')?.value.toLowerCase() || '';
     const rows = document.querySelectorAll('.artefact-row');
+    
     rows.forEach(row => {
-        if (incidentId === 'all') {
-            row.style.display = '';
-        } else {
-            row.style.display = row.dataset.incident == incidentId ? '' : 'none';
-        }
+        const incidentId = row.dataset.incident;
+        const text = row.textContent.toLowerCase();
+        
+        // Check if row matches incident filter
+        const matchesIncident = currentIncidentFilter === 'all' || incidentId == currentIncidentFilter;
+        
+        // Check if row matches search term
+        const matchesSearch = searchTerm === '' || text.includes(searchTerm);
+        
+        // Show row only if it matches both filters
+        row.style.display = matchesIncident && matchesSearch ? '' : 'none';
     });
+    
+    // Update select all checkbox state
+    updateSelectAllCheckbox();
+}
+
+// Incident filtering with proper state management
+function filterByIncident(incidentId) {
+    // Update current filter state
+    currentIncidentFilter = incidentId;
+    
+    // Update UI - remove active class from all filter buttons
+    document.querySelectorAll('.list-group-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to selected filter
+    const activeFilter = incidentId === 'all' ? 
+        getElementSafe('filter-all') : 
+        getElementSafe(`filter-${incidentId}`);
+    
+    if (activeFilter) {
+        activeFilter.classList.add('active');
+    }
+    
+    // Apply filters
+    filterArtefacts();
+    
+    // Clear any selections when changing incident filter
+    document.querySelectorAll('.artefact-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    // Update select all checkbox
+    updateSelectAllCheckbox();
+}
+
+// Enhanced select all functionality
+function selectAllArtefacts(select) {
+    const visibleCheckboxes = Array.from(document.querySelectorAll('.artefact-checkbox'))
+        .filter(checkbox => {
+            const row = checkbox.closest('.artefact-row');
+            return row && row.style.display !== 'none';
+        });
+    
+    visibleCheckboxes.forEach(checkbox => {
+        checkbox.checked = select;
+    });
+    
+    updateSelectAllCheckbox();
+}
+
+// Update select all checkbox state based on visible checkboxes
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = getElementSafe('select-all-checkbox');
+    if (!selectAllCheckbox) return;
+    
+    const visibleCheckboxes = Array.from(document.querySelectorAll('.artefact-checkbox'))
+        .filter(checkbox => {
+            const row = checkbox.closest('.artefact-row');
+            return row && row.style.display !== 'none';
+        });
+    
+    if (visibleCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+    
+    const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
+    
+    if (checkedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedCount === visibleCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
 }
 
 // Rule selection and filtering
@@ -385,20 +487,22 @@ function updateRuleSelectionUI() {
             const row = checkbox.closest('tr');
             if (!row) return;
             
-            const ruleName = row.querySelector('strong')?.textContent;
-            const severityBadge = row.querySelector('.badge')?.cloneNode(true);
+            const ruleName = row.querySelector('td:nth-child(2) strong')?.textContent;
+            const severityBadge = row.querySelector('td:nth-child(4) .badge')?.cloneNode(true);
             
             if (!ruleName) return;
             
             const ruleElement = document.createElement('div');
-            ruleElement.className = 'd-flex align-items-center bg rounded p-2 mb-2';
+            ruleElement.className = 'd-flex align-items-center bg-light border rounded p-2 mb-2';
             
+            let badgeHtml = '';
             if (severityBadge) {
                 severityBadge.classList.add('me-2');
-                ruleElement.appendChild(severityBadge);
+                badgeHtml = severityBadge.outerHTML;
             }
             
-            ruleElement.innerHTML += `
+            ruleElement.innerHTML = `
+                ${badgeHtml}
                 <strong class="me-2">${ruleName}</strong>
                 <button class="btn btn-sm btn-outline-danger ms-auto" 
                         onclick="deselectRule('${checkbox.value}')">
@@ -420,9 +524,14 @@ function deselectRule(ruleId) {
 }
 
 function selectAllRules(select) {
-    document.querySelectorAll('.rule-checkbox').forEach(checkbox => {
-        checkbox.checked = select;
+    const visibleRules = Array.from(document.querySelectorAll('.rule-row'))
+        .filter(row => row.style.display !== 'none');
+    
+    visibleRules.forEach(row => {
+        const checkbox = row.querySelector('.rule-checkbox');
+        if (checkbox) checkbox.checked = select;
     });
+    
     updateRuleSelectionUI();
 }
 
@@ -454,10 +563,16 @@ function filterRules() {
             severity.includes(severityFilterValue);
         
         row.style.display = matchesSearch && matchesTag && matchesSeverity ? '' : 'none';
+        
+        // Also hide/show the corresponding collapse row
+        const collapseRow = document.querySelector(`#logics-${row.querySelector('.rule-checkbox')?.value}`);
+        if (collapseRow) {
+            collapseRow.style.display = row.style.display;
+        }
     });
 }
 
-// Analysis execution
+// Analysis execution with better error handling
 function launchAnalysisModal(e) {
     e.preventDefault();
     
@@ -465,8 +580,22 @@ function launchAnalysisModal(e) {
     const statusElement = document.getElementById('analysis-status');
     const runBtn = document.getElementById('run-analysis-btn');
     
+    // Validate form
+    const selectedArtefacts = document.querySelectorAll('.artefact-checkbox:checked');
+    const selectedRules = document.querySelectorAll('.rule-checkbox:checked');
+    
+    if (selectedArtefacts.length === 0) {
+        alert('Please select at least one artefact to analyze.');
+        return;
+    }
+    
+    if (selectedRules.length === 0) {
+        alert('Please select at least one rule to apply.');
+        return;
+    }
+    
     // Reset UI
-    statusElement.textContent = 'Starting analysis...\n';
+    statusElement.innerHTML = '<p class="text-primary"><i class="fas fa-spinner fa-spin"></i> Starting analysis...</p>';
     runBtn.disabled = true;
     
     // Show modal
@@ -481,8 +610,13 @@ function launchAnalysisModal(e) {
         headers: {"X-CSRFToken": formData.get('csrfmiddlewaretoken')},
         body: formData
     }).then(response => {
-        if (!response.ok) throw new Error('Analysis failed to start');
-        if (!response.body) throw new Error('No response from server');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        if (!response.body) {
+            throw new Error('No response body received');
+        }
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -490,47 +624,32 @@ function launchAnalysisModal(e) {
         function read() {
             return reader.read().then(({done, value}) => {
                 if (done) {
-                    runBtn.disabled = true;
-                    const resultLinks = document.getElementById('analysis-result-links');
-                    if (resultLinks) {
-                        resultLinks.classList.remove('disabled');
-                        resultLinks.style.pointerEvents = '';
-                        resultLinks.style.opacity = '';
-                    }
+                    statusElement.innerHTML += '<p class="text-success"><i class="fas fa-check-circle"></i> Analysis completed successfully!</p>';
+                    runBtn.disabled = false;
                     return;
                 }
 
                 const text = decoder.decode(value, {stream: true});
+                statusElement.innerHTML += text;
 
-                // Append new content
-                statusElement.insertAdjacentHTML('beforeend', text);
-
-                // Limit to last 200 lines (adjust as needed)
+                // Limit content to prevent memory issues
                 const lines = statusElement.innerHTML.split('\n');
-                if (lines.length > 200) {
-                    statusElement.innerHTML = lines.slice(-200).join('\n');
+                if (lines.length > 500) {
+                    statusElement.innerHTML = lines.slice(-400).join('\n');
                 }
 
-                // Auto-scroll
+                // Auto-scroll to bottom
                 statusElement.scrollTop = statusElement.scrollHeight;
 
                 return read();
             });
         }
-
         
         return read();
     }).catch(error => {
-        statusElement.textContent += '\nError: ' + error.message;
+        console.error('Analysis error:', error);
+        statusElement.innerHTML += `<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</p>`;
         runBtn.disabled = false;
-    });
-}
-
-// Helper for select all artefacts
-function selectAllArtefacts(select) {
-    const checkboxes = document.querySelectorAll('.artefact-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = select;
     });
 }
 </script>
