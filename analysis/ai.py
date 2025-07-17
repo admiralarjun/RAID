@@ -36,30 +36,35 @@ class Reference(BaseModel):
     record_index: int = Field(..., description="Index of the record in the artefact")
     mitre_techniques: List[str] = Field(..., description="List of MITRE ATT&CK technique IDs relevant to this reference")
 
+class Iocs(BaseModel):
+    malicious_hash: str = Field(..., description="Hashes like MD5, SHA family, etc...")
+    malicious_domain: str = Field(..., description="Malicious inbound and outbound IP address or host or FQDN.")
+    comment: str = Field(..., description="A comment about the IOC")
 class AIAnalysisOutput(BaseModel):
     summary: str = Field(..., description="Concise summary of key findings")
     narrative: str = Field(..., description="Detailed narrative explaining the analysis and findings")
     highlights: List[Highlight] = Field(..., description="List of critical events or excerpts with context and reasoning")
     references: List[Reference] = Field(..., description="References to rule matches and MITRE techniques relevant to the findings")
     recommendations: List[str] = Field(..., description="Actionable recommendations for next steps or remediation")
+    iocs: List[Iocs]
 
 # --- Prompt Templates ---
 PROMPTS: Dict[str, str] = {
     'evtx': '''
 You are a forensic incident responder examining Windows Event Logs from "{name} (type: {atype})".
 Review each event for indicators of malicious or anomalous behavior, uncover patterns of compromise or policy violations, and explain how these events map to attacker tactics and techniques.
-Highlight the most critical events, anomalous sequences, and potential threat paths. Conclude with concise recommendations for next steps in investigation and mitigation.
+Highlight the most critical events, anomalous sequences, and potential threat paths. Conclude with concise recommendations for next steps in investigation and mitigation. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
 ''',
     'pcap': '''
 You are a network security analyst dissecting the packet capture "{name} (type: {atype})".
 Inspect network flows, protocol exchanges, and payloads to detect intrusion attempts, data exfiltration, or lateral movement.
 Identify suspicious sessions, protocol anomalies, or malicious content and explain their relevance to the incident.
-Finish with clear, actionable recommendations for containment, further packet analysis, or network defenses.
+Finish with clear, actionable recommendations for containment, further packet analysis, or network defenses. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
 ''',
     'generic': '''
 You are an experienced incident responder analyzing the artefact "{name}" (type: {atype}).
 Interpret the data to spot signs of malicious activity, contextualize noteworthy entries, and reconstruct likely adversary actions.
-Emphasize critical findings and unusual patterns, then provide concise next steps for triage, containment, and remediation.
+Emphasize critical findings and unusual patterns, then provide concise next steps for triage, containment, and remediation. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
 '''
 }
 
@@ -98,7 +103,7 @@ def ai_artefact_analysis(request, artefact_id):
 
     # Call LLM
     ai_response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
@@ -238,7 +243,7 @@ def ai_incident_analysis(request, incident_id):
     """
 
     resp = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
@@ -338,7 +343,7 @@ def generate_incident_correlation_graph(
 
     # LLM Call
     resp = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
