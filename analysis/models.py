@@ -108,7 +108,7 @@ class IncidentAnalysisResult(models.Model):
     prompt_used = models.TextField()
     raw_response = models.JSONField(default=dict)
     graph = models.JSONField(default=dict, null=True, blank=True)
-
+    traceable_sankey = models.JSONField(default=dict, null=True, blank=True)
     def __str__(self):
         return f"IncidentAnalysisResult({self.incident.incident_id}@{self.generated_at:%Y-%m-%d %H:%M:%S})"
 
