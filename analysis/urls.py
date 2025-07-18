@@ -19,4 +19,6 @@ urlpatterns = [
     path('analysis/ai/artefact/<uuid:artefact_id>/', ai_artefact_analysis, name='ai_artefact_analysis'),
     path('analysis/ai/incident/<slug:incident_id>/', ai_incident_analysis, name='ai_incident_analysis'),
 
+    path("ai/intel-rules/", views.ai_intel_generated_rules_view, name="ai_intel_generated_rules"),
+
 ]

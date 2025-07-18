@@ -369,3 +369,83 @@ def generate_incident_correlation_graph(
     graph = IncidentGraph(**graph_data)
 
     return graph
+
+def generate_rules_from_internet_intel():
+    prompt = """
+You are a cybersecurity detection engineer tasked with generating real-world detection rules based on active threat intelligence.
+
+---
+
+### OBJECTIVE:
+Retrieve and analyze threat intelligence published in the last 30 days from these reputable sources:
+- Microsoft Security Response Center (MSRC)
+- CISA (Cybersecurity & Infrastructure Security Agency)
+- US-CERT Alerts
+- CrowdStrike Threat Intelligence
+- Mandiant/FireEye Threat Reports
+- SANS Internet Storm Center (ISC) Diaries
+- Recorded Future Intelligence Feeds
+- Symantec Threat Reports
+
+Prioritize content containing:
+- Malware campaign TTPs
+- Exploited CVEs
+- Post-compromise behavior
+- Tooling or tradecraft of APT or ransomware groups
+- Initial access and privilege escalation techniques
+
+---
+
+### OUTPUT FORMAT (STRICT):
+Return 3–5 high-quality detection rules in clean **Markdown**. Do **not** add any commentary, introductions, conclusions, or conversational elements.
+
+Each rule must follow this exact format:
+
+#### Rule Name: [Concise, descriptive title]
+**Description:** [1–2 line summary of the detection logic and purpose]  
+**Tags:** [comma-separated keywords]  
+**MITRE Techniques:** Txxxx - Technique Name, Tyyyy - Technique Name  
+
+**Logic Units:**  
+- `L1`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
+- `L2`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
+- `L3`: ...  
+
+**Boolean Logic:**  
+(L1 and L2) or (L3 and not L4)
+
+---
+
+### RULE GENERATION GUIDELINES:
+- Derive every rule from an actual report, technique, or observable shared in the last 30 days.
+- Avoid trivial matches or simplistic process names — prefer compound behavioral logic.
+- Prioritize rules that reflect **adversary tradecraft** (e.g., LOLBins, defense evasion, abuse of trusted binaries).
+- Incorporate context-aware patterns (e.g., PowerShell with Base64 + external network call).
+- Include at least one MITRE ATT&CK technique per rule.
+- Avoid fictional or unsupported TTPs — rules must reflect realistic, documented activity.
+- If you can’t find enough recent intel, fallback to a well-known ongoing campaign or generalize known TTPs cautiously.
+
+---
+
+### FINAL INSTRUCTIONS:
+Return only the **detection rules** in Markdown, no commentary or extra explanations. Ensure all rules are syntactically valid and actionable.
+
+    """
+
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(
+                google_search=types.GoogleSearchRetrieval(
+                    dynamic_retrieval_config=types.DynamicRetrievalConfig(
+                        mode=types.DynamicRetrievalConfigMode.MODE_DYNAMIC,
+                        dynamic_threshold=1
+                    )
+                )
+            )],
+            response_mime_type='text/plain',
+        )
+    )
+
+    return {"markdown_output": response.text}

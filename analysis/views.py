@@ -17,7 +17,7 @@ from django.db.models import Q, Prefetch
 from django.core.paginator import Paginator
 from django.urls import reverse
 import requests, threading
-
+from .ai import generate_rules_from_internet_intel
 @method_decorator(login_required, name='dispatch')
 class UnifiedDashboardView(TemplateView):
     template_name = "analysis/dashboard.html"
@@ -514,3 +514,9 @@ class IncidentAnalysisDashboardView(TemplateView):
         return {
             "incidents": incidents
         }
+
+def ai_intel_generated_rules_view(request):
+
+    context = generate_rules_from_internet_intel()
+
+    return render(request, "analysis/ai/ai_intel_rules.html", context)

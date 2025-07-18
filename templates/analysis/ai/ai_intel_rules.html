@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-3">AI-Generated Detection Rules</h2>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div id="rendered-markdown" class="markdown-content"></div>
+            <script type="text/markdown" id="markdown-source">
+{{ markdown_output }}
+            </script>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="text-end">
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#actionModal" data-action="accept">
+            <i class="fas fa-check-circle me-1"></i> Accept
+        </button>
+        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#actionModal" data-action="decline">
+            <i class="fas fa-times-circle me-1"></i> Decline
+        </button>
+        <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#actionModal" data-action="ignore">
+            <i class="fas fa-ban me-1"></i> Ignore
+        </button>
+    </div>
+</div>
+
+<!-- Modal for Action with Comment -->
+<div class="modal fade" id="actionModal" tabindex="-1" aria-labelledby="actionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" id="actionForm">
+        {% csrf_token %}
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="actionModalLabel"><i class="fas fa-comment-dots me-2"></i>Submit Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action_type" id="action_type">
+                <div class="mb-3">
+                    <label for="comment" class="form-label">Comment or Note</label>
+                    <textarea class="form-control" name="comment" id="comment" rows="4" placeholder="Optional comment..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-1"></i> Submit
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </form>
+  </div>
+</div>
+
+<!-- Marked.js for Markdown Rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    const rawMarkdown = document.getElementById("markdown-source").textContent;
+    const html = marked.parse(rawMarkdown);
+    document.getElementById("rendered-markdown").innerHTML = html;
+
+    // Handle dynamic action type in modal
+    const actionModal = document.getElementById('actionModal');
+    actionModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const actionType = button.getAttribute('data-action');
+        document.getElementById('action_type').value = actionType;
+        const modalTitle = actionType.charAt(0).toUpperCase() + actionType.slice(1);
+        document.getElementById('actionModalLabel').innerHTML = `<i class="fas fa-comment-dots me-2"></i>${modalTitle} Rule`;
+    });
+</script>
+{% endblock %}
