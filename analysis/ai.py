@@ -48,25 +48,38 @@ class AIAnalysisOutput(BaseModel):
     recommendations: List[str] = Field(..., description="Actionable recommendations for next steps or remediation")
     iocs: List[Iocs]
 
-# --- Prompt Templates ---
 PROMPTS: Dict[str, str] = {
     'evtx': '''
-You are a forensic incident responder examining Windows Event Logs from "{name} (type: {atype})".
-Review each event for indicators of malicious or anomalous behavior, uncover patterns of compromise or policy violations, and explain how these events map to attacker tactics and techniques.
-Highlight the most critical events, anomalous sequences, and potential threat paths. Conclude with concise recommendations for next steps in investigation and mitigation. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
+You are a forensic incident responder analyzing Windows Event Logs from the artefact "{name}" (type: {atype}).
+
+Thoroughly examine the log entries for signs of malicious activity, policy violations, or suspicious patterns. Identify events or sequences that may indicate techniques like privilege escalation, persistence, lateral movement, or execution of suspicious binaries.
+
+Be precise and only base findings on the data available in the logs. Avoid assumptions or speculative links. When appropriate, map findings to known attacker behaviors using MITRE ATT&CK techniques.
+
+Highlight the most critical or unusual entries, provide context and reasoning, and extract any indicators of compromise such as suspicious IPs, domains, or file hashes. Summarize the key insights and suggest practical next steps for triage or remediation.
 ''',
+
     'pcap': '''
-You are a network security analyst dissecting the packet capture "{name} (type: {atype})".
-Inspect network flows, protocol exchanges, and payloads to detect intrusion attempts, data exfiltration, or lateral movement.
-Identify suspicious sessions, protocol anomalies, or malicious content and explain their relevance to the incident.
-Finish with clear, actionable recommendations for containment, further packet analysis, or network defenses. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
+You are a network security analyst reviewing the packet capture artefact "{name}" (type: {atype}).
+
+Analyze the network traffic for evidence of threats such as intrusion attempts, command-and-control communication, data exfiltration, or abnormal protocol use. Look for specific signs of compromise like unusual traffic patterns, known malicious indicators, or protocol abuse.
+
+Focus only on data-backed observations and avoid fabricating context. Where relevant, associate patterns with MITRE ATT&CK techniques, explaining why the mapping is appropriate.
+
+Emphasize suspicious sessions or payloads, extract any reliable indicators of compromise (IPs, domains, hashes), and suggest actionable steps for containment, deeper inspection, or defense hardening.
 ''',
+
     'generic': '''
 You are an experienced incident responder analyzing the artefact "{name}" (type: {atype}).
-Interpret the data to spot signs of malicious activity, contextualize noteworthy entries, and reconstruct likely adversary actions.
-Emphasize critical findings and unusual patterns, then provide concise next steps for triage, containment, and remediation. Also, make sure to extract relevant indicator of compromise from the artefacts like suspicious FQDNs, IPs, hashes and malware indications.
+
+Review the content carefully to identify evidence of compromise, misuse, or abnormal behavior. Focus on patterns that suggest attacker activity, misconfigurations, or vulnerabilities being exploited.
+
+Base your insights only on what is explicitly present in the artefact—avoid assumptions or guesses. If relevant, map specific behaviors to MITRE ATT&CK techniques with justifications.
+
+Highlight the most impactful records, explain their significance, and extract valid indicators of compromise such as domains, IPs, or hashes. Conclude with logical and actionable next steps.
 '''
 }
+
 
 @require_POST
 @csrf_exempt
