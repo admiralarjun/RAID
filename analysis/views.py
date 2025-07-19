@@ -273,7 +273,7 @@ def run_analysis(request):
             yield f'<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Analysis error: {str(e)}</p>\n'
             return
 
-        yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering AI analysis for artefacts...</p>\n'
+        yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering R.A.I.D Analysis for artefacts...</p>\n'
         artefact_links = []
         for artefact_idx, artefact in enumerate(artefacts, start=1):
             try:
@@ -282,33 +282,31 @@ def run_analysis(request):
                 if resp.ok:
                     result_url = request.build_absolute_uri(reverse('analysis:artefact_result', args=[artefact.id]))
                     artefact_links.append(f'<a href="{result_url}" target="_blank" class="btn btn-sm btn-outline-primary me-1">{artefact.name}</a>')
-                    yield f'<p class="text-success"><i class="fas fa-robot"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis completed for <strong>{artefact.name}</strong></p>\n'
+                    yield f'<p class="text-success"><i class="fas fa-robot"></i> Artefact [{artefact_idx}/{total_artefacts}]: R.A.I.D Analysis completed for <strong>{artefact.name}</strong></p>\n'
                 else:
-                    yield f'<p class="text-danger"><i class="fas fa-times-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis failed for {artefact.name}: {resp.status_code}</p>\n'
+                    yield f'<p class="text-danger"><i class="fas fa-times-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: R.A.I.D Analysis failed for {artefact.name}: {resp.status_code}</p>\n'
             except Exception as e:
                 yield f'<p class="text-danger"><i class="fas fa-exclamation-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI request error for {artefact.name}: {e}</p>\n'
 
-        if artefact_links:
-            yield f'<script>document.getElementById("results-section").classList.remove("d-none"); document.getElementById("result-buttons").innerHTML = "{" ".join(artefact_links)}";</script>\n'
-
+   
         incident_id = None
         if artefacts and artefacts[0].incident:
             incident_id = str(artefacts[0].incident.incident_id)
 
         if incident_id:
-            yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering incident-level AI analysis...</p>\n'
+            yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering incident-level R.A.I.D Analysis...</p>\n'
             try:
                 url_inc = request.build_absolute_uri(reverse('analysis:ai_incident_analysis', args=[incident_id]))
                 resp = requests.post(url_inc, timeout=300)
                 if resp.ok:
                     detail_url = request.build_absolute_uri(reverse('core:incident_detail', args=[incident_id]))
-                    yield f'<p class="text-success"><i class="fas fa-check-circle"></i> Incident-level AI analysis completed. <a href="{detail_url}" target="_blank" class="btn btn-sm btn-outline-success">View Incident</a></p>\n'
+                    yield f'<p class="text-success"><i class="fas fa-check-circle"></i> Incident-level R.A.I.D Analysis completed. <a href="{detail_url}" target="_blank" class="btn btn-sm btn-outline-success">View Incident</a></p>\n'
                 else:
                     yield f'<p class="text-danger"><i class="fas fa-times-circle"></i> Incident-level AI failed: {resp.status_code}</p>\n'
             except Exception as e:
                 yield f'<p class="text-danger"><i class="fas fa-exclamation-circle"></i> Incident-level AI error: {e}</p>\n'
         else:
-            yield '<p class="text-warning"><i class="fas fa-exclamation-triangle"></i> No incident found for the artefacts. Skipping incident AI analysis.</p>\n'
+            yield '<p class="text-warning"><i class="fas fa-exclamation-triangle"></i> No incident found for the artefacts. Skipping incident R.A.I.D Analysis.</p>\n'
 
         yield '<p class="text-success"><i class="fas fa-flag-checkered"></i> Full analysis complete.</p>\n'
 
@@ -401,7 +399,7 @@ class ArtefactAnalysisResultView(TemplateView):
             'rule__tags', 'rule__mitre_techniques'
         )
 
-        # Ai Analysis Results
+        # R.A.I.D Analysis Results
         ai_artefact_analysis_result = AIAnalysisResult.objects.filter(artefact=artefact).first()
         
         available_tags = set()

@@ -69,8 +69,8 @@
           {% else %}
           <div class="text-center text-muted py-4">
             <i class="fa fa-cog fa-3x mb-3"></i>
-            <h6>Incident AI Analysis Not Run Yet</h6>
-            <p class="mb-3">Run AI analysis to get incident-level insights and recommendations.</p>
+            <h6>Incident R.A.I.D Analysis Not Run Yet</h6>
+            <p class="mb-3">Run R.A.I.D Analysis to get incident-level insights and recommendations.</p>
             <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
               <i class="fa fa-play"></i> Start Analysis
             </a>
@@ -163,7 +163,7 @@
   </div>
 
 
-<!-- Full-Width AI Analysis Summary -->
+<!-- Full-Width R.A.I.D Analysis Summary -->
 {% if object.artefacts.exists %}
 <div class="row mb-4">
   <div class="col-12">
@@ -203,16 +203,16 @@
             {% empty %}
               <li class="list-group-item text-center text-muted">
                 <i class="fa fa-robot fa-2x mb-2"></i>
-                <p class="mb-2">No AI analysis available yet.</p>
+                <p class="mb-2">No R.A.I.D Analysis available yet.</p>
               </li>
             {% endfor %}
           </ul>
           {% else %}
           <div class="text-center text-muted py-4">
             <i class="fa fa-robot fa-2x mb-2"></i>
-            <p class="mb-2">No AI analysis available yet.</p>
+            <p class="mb-2">No R.A.I.D Analysis available yet.</p>
             <a href="{% url 'analysis:start' %}" class="btn btn-primary btn-sm">
-              <i class="fa fa-play"></i> Start AI Analysis
+              <i class="fa fa-play"></i> Start R.A.I.D Analysis
             </a>
           </div>
           {% endif %}

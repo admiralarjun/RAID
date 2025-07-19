@@ -54,6 +54,15 @@ Thoroughly examine the log entries for signs of malicious activity, policy viola
 
 Be precise and only base findings on the data available in the logs. Avoid assumptions or speculative links. When appropriate, map findings to known attacker behaviors using MITRE ATT&CK techniques.
 
+## Logs:
+{records}
+
+## Rule Matches:
+{matches}
+
+## Logic Evaluations:
+{logic}
+
 Highlight the most critical or unusual entries, provide context and reasoning, and extract any indicators of compromise such as suspicious IPs, domains, or file hashes. Summarize the key insights and suggest practical next steps for triage or remediation.
 ''',
 
@@ -63,6 +72,15 @@ You are a network security analyst reviewing the packet capture artefact "{name}
 Analyze the network traffic for evidence of threats such as intrusion attempts, command-and-control communication, data exfiltration, or abnormal protocol use. Look for specific signs of compromise like unusual traffic patterns, known malicious indicators, or protocol abuse.
 
 Focus only on data-backed observations and avoid fabricating context. Where relevant, associate patterns with MITRE ATT&CK techniques, explaining why the mapping is appropriate.
+
+## Logs:
+{records}
+
+## Rule Matches:
+{matches}
+
+## Logic Evaluations:
+{logic}
 
 Emphasize suspicious sessions or payloads, extract any reliable indicators of compromise (IPs, domains, hashes), and suggest actionable steps for containment, deeper inspection, or defense hardening.
 ''',
@@ -74,42 +92,88 @@ Review the content carefully to identify evidence of compromise, misuse, or abno
 
 Base your insights only on what is explicitly present in the artefact—avoid assumptions or guesses. If relevant, map specific behaviors to MITRE ATT&CK techniques with justifications.
 
+## Logs:
+{records}
+
+## Rule Matches:
+{matches}
+
+## Logic Evaluations:
+{logic}
+
 Highlight the most impactful records, explain their significance, and extract valid indicators of compromise such as domains, IPs, or hashes. Conclude with logical and actionable next steps.
 '''
 }
 
 
-@require_POST
-@csrf_exempt
-def ai_artefact_analysis(request, artefact_id):
+WINDOW_SIZE = 10  # Number of records before and after the match to include
+MAX_RECORDS_FOR_NO_MATCH = 200  # Max records to include if no rule matches
+
+
+def build_analysis_context(artefact_id):
     artefact = get_object_or_404(Artefact, id=artefact_id)
     atype = artefact.artefact_type.lower() or 'generic'
 
-    # Build context
-    records = list(artefact.records.values('record_index', 'content'))
+    # Fetch all records ordered by PK (assumes time or insertion order)
+    all_records = list(artefact.records.order_by('pk').values('pk', 'content'))
+    pk_to_index = {r['pk']: i for i, r in enumerate(all_records)}
+
+    # Collect matches
     matches = []
-    for rm in RuleMatch.objects.filter(artefact=artefact):
+    match_indices = set()
+    rule_matches = RuleMatch.objects.filter(artefact=artefact).select_related('rule', 'log_record').prefetch_related('rule__mitre_techniques')
+
+    for rm in rule_matches:
+        index = pk_to_index.get(rm.log_record.pk)
+        if index is not None:
+            match_indices.add(index)
         matches.append({
             'rule_match_id': rm.id,
             'rule_name': rm.rule.name,
             'record_index': rm.log_record.pk,
             'mitre_techniques': [t.technique_id for t in rm.rule.mitre_techniques.all()]
         })
-    logic_map = {}
-    for le in LogicEvaluation.objects.filter(rule_match__in=[m['rule_match_id'] for m in matches]):
-        logic_map.setdefault(le.rule_match_id, []).append({'logic': le.logic_unit.name, 'passed': le.passed})
 
-    # Select prompt and format
+    # Build logic evaluations map
+    logic_map = {}
+    logic_evals = LogicEvaluation.objects.filter(rule_match__in=[m['rule_match_id'] for m in matches])
+    for le in logic_evals:
+        logic_map.setdefault(le.rule_match_id, []).append({
+            'logic': le.logic_unit.name,
+            'passed': le.passed
+        })
+
+    # Determine which records to include in context
+    included_indices = set()
+
+    if match_indices:
+        for idx in match_indices:
+            start = max(idx - WINDOW_SIZE, 0)
+            end = min(idx + WINDOW_SIZE + 1, len(all_records))
+            included_indices.update(range(start, end))
+    else:
+        included_indices.update(range(min(len(all_records), MAX_RECORDS_FOR_NO_MATCH)))
+
+    selected_records = [all_records[i] for i in sorted(included_indices)]
+
+    # Prepare the prompt
     template = PROMPTS.get(atype, PROMPTS['generic'])
     prompt = template.format(
         name=artefact.name,
         atype=artefact.artefact_type,
-        records=json.dumps(records),
+        records=json.dumps(selected_records),
         matches=json.dumps(matches),
         logic=json.dumps(logic_map)
     )
 
-    print(f"AI Analysis Prompt for {artefact.name} (type: {artefact.artefact_type}):\n{prompt}\n")
+    print(f"Prompt\n{'='*50}{prompt}\n{'='*50}")
+    return artefact, prompt
+
+@require_POST
+@csrf_exempt
+def ai_artefact_analysis(request, artefact_id):
+ 
+    artefact, prompt = build_analysis_context(artefact_id)
 
     # Call LLM
     ai_response = client.models.generate_content(
@@ -124,7 +188,7 @@ def ai_artefact_analysis(request, artefact_id):
     # Parsing the response
     ai_response: AIAnalysisOutput = ai_response.parsed
 
-    print(f"AI Analysis Response for {artefact.name} (type: {artefact.artefact_type}):\n{type(ai_response)}\n{'='*50}\n{ai_response}")
+    print(f"R.A.I.D Analysis Response for {artefact.name} (type: {artefact.artefact_type}):\n{type(ai_response)}\n{'='*50}\n{ai_response}")
 
     # Persist, overwrite
     AIAnalysisResult.objects.filter(artefact=artefact).delete()
@@ -142,9 +206,6 @@ def ai_artefact_analysis(request, artefact_id):
     )
 
     return JsonResponse({'result_id': result.id, **ai_response.model_dump()})
-
-
-
 
 class ArtefactSummary(BaseModel):
     name: str = Field(..., description="Name of the artefact")
