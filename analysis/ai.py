@@ -25,14 +25,12 @@ client = genai.Client(api_key=settings.AI_API_KEY)
 
 class Highlight(BaseModel):
     record_index: int = Field(..., description="Index of the record in the artefact")
-    log_index: int = Field(..., description="Unique identifier for the log entry")
     excerpt: str = Field(..., description="Relevant excerpt from the record")
     reason: str = Field(..., description="Explanation for why this highlight is important")
 
 class Reference(BaseModel):
     rule_match_id: int = Field(..., description="ID of the matched rule")
     rule_name: str = Field(..., description="Name of the matched rule")
-    log_index: str = Field(..., description="Unique identifier for the log entry")
     record_index: int = Field(..., description="Index of the record in the artefact")
     mitre_techniques: List[str] = Field(..., description="List of MITRE ATT&CK technique IDs relevant to this reference")
 
@@ -94,8 +92,7 @@ def ai_artefact_analysis(request, artefact_id):
         matches.append({
             'rule_match_id': rm.id,
             'rule_name': rm.rule.name,
-            'record_index': rm.log_record.record_index,
-            'log_index': rm.log_record.pk,
+            'record_index': rm.log_record.pk,
             'mitre_techniques': [t.technique_id for t in rm.rule.mitre_techniques.all()]
         })
     logic_map = {}
@@ -372,63 +369,63 @@ def generate_incident_correlation_graph(
 
 def generate_rules_from_internet_intel():
     prompt = """
-You are a cybersecurity detection engineer tasked with generating real-world detection rules based on active threat intelligence.
+        You are a cybersecurity detection engineer tasked with generating real-world detection rules based on active threat intelligence.
 
----
+        ---
 
-### OBJECTIVE:
-Retrieve and analyze threat intelligence published in the last 30 days from these reputable sources:
-- Microsoft Security Response Center (MSRC)
-- CISA (Cybersecurity & Infrastructure Security Agency)
-- US-CERT Alerts
-- CrowdStrike Threat Intelligence
-- Mandiant/FireEye Threat Reports
-- SANS Internet Storm Center (ISC) Diaries
-- Recorded Future Intelligence Feeds
-- Symantec Threat Reports
+        ### OBJECTIVE:
+        Retrieve and analyze threat intelligence published in the last 30 days from these reputable sources:
+        - Microsoft Security Response Center (MSRC)
+        - CISA (Cybersecurity & Infrastructure Security Agency)
+        - US-CERT Alerts
+        - CrowdStrike Threat Intelligence
+        - Mandiant/FireEye Threat Reports
+        - SANS Internet Storm Center (ISC) Diaries
+        - Recorded Future Intelligence Feeds
+        - Symantec Threat Reports
 
-Prioritize content containing:
-- Malware campaign TTPs
-- Exploited CVEs
-- Post-compromise behavior
-- Tooling or tradecraft of APT or ransomware groups
-- Initial access and privilege escalation techniques
+        Prioritize content containing:
+        - Malware campaign TTPs
+        - Exploited CVEs
+        - Post-compromise behavior
+        - Tooling or tradecraft of APT or ransomware groups
+        - Initial access and privilege escalation techniques
 
----
+        ---
 
-### OUTPUT FORMAT (STRICT):
-Return 3–5 high-quality detection rules in clean **Markdown**. Do **not** add any commentary, introductions, conclusions, or conversational elements.
+        ### OUTPUT FORMAT (STRICT):
+        Return 3–5 high-quality detection rules in clean **Markdown**. Do **not** add any commentary, introductions, conclusions, or conversational elements.
 
-Each rule must follow this exact format:
+        Each rule must follow this exact format:
 
-#### Rule Name: [Concise, descriptive title]
-**Description:** [1–2 line summary of the detection logic and purpose]  
-**Tags:** [comma-separated keywords]  
-**MITRE Techniques:** Txxxx - Technique Name, Tyyyy - Technique Name  
+        #### Rule Name: [Concise, descriptive title]
+        **Description:** [1–2 line summary of the detection logic and purpose]  
+        **Tags:** [comma-separated keywords]  
+        **MITRE Techniques:** Txxxx - Technique Name, Tyyyy - Technique Name  
 
-**Logic Units:**  
-- `L1`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
-- `L2`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
-- `L3`: ...  
+        **Logic Units:**  
+        - `L1`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
+        - `L2`: [Detection Method] [Matching Pattern] (`negate=True/False`)  
+        - `L3`: ...  
 
-**Boolean Logic:**  
-(L1 and L2) or (L3 and not L4)
+        **Boolean Logic:**  
+        (L1 and L2) or (L3 and not L4)
 
----
+        ---
 
-### RULE GENERATION GUIDELINES:
-- Derive every rule from an actual report, technique, or observable shared in the last 30 days.
-- Avoid trivial matches or simplistic process names — prefer compound behavioral logic.
-- Prioritize rules that reflect **adversary tradecraft** (e.g., LOLBins, defense evasion, abuse of trusted binaries).
-- Incorporate context-aware patterns (e.g., PowerShell with Base64 + external network call).
-- Include at least one MITRE ATT&CK technique per rule.
-- Avoid fictional or unsupported TTPs — rules must reflect realistic, documented activity.
-- If you can’t find enough recent intel, fallback to a well-known ongoing campaign or generalize known TTPs cautiously.
+        ### RULE GENERATION GUIDELINES:
+        - Derive every rule from an actual report, technique, or observable shared in the last 30 days.
+        - Avoid trivial matches or simplistic process names — prefer compound behavioral logic.
+        - Prioritize rules that reflect **adversary tradecraft** (e.g., LOLBins, defense evasion, abuse of trusted binaries).
+        - Incorporate context-aware patterns (e.g., PowerShell with Base64 + external network call).
+        - Include at least one MITRE ATT&CK technique per rule.
+        - Avoid fictional or unsupported TTPs — rules must reflect realistic, documented activity.
+        - If you can’t find enough recent intel, fallback to a well-known ongoing campaign or generalize known TTPs cautiously.
 
----
+        ---
 
-### FINAL INSTRUCTIONS:
-Return only the **detection rules** in Markdown, no commentary or extra explanations. Ensure all rules are syntactically valid and actionable.
+        ### FINAL INSTRUCTIONS:
+        Return only the **detection rules** in Markdown, no commentary or extra explanations. Ensure all rules are syntactically valid and actionable.
 
     """
 
@@ -448,4 +445,4 @@ Return only the **detection rules** in Markdown, no commentary or extra explanat
         )
     )
 
-    return {"markdown_output": response.text}
+    return response.candidates[0]

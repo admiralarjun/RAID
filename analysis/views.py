@@ -1,5 +1,7 @@
 # analysis/views.py
-
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.http import StreamingHttpResponse
@@ -16,8 +18,10 @@ from collections import defaultdict
 from django.db.models import Q, Prefetch
 from django.core.paginator import Paginator
 from django.urls import reverse
-import requests, threading
+import requests, time
 from .ai import generate_rules_from_internet_intel
+
+
 @method_decorator(login_required, name='dispatch')
 class UnifiedDashboardView(TemplateView):
     template_name = "analysis/dashboard.html"
@@ -147,52 +151,58 @@ def safe_boolean_eval(expression: str, context: dict) -> bool:
         raise ValueError(f"Expression evaluation failed: {e}")
 
 
+
+
 @login_required
 def run_analysis(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
-    
+
     artefact_ids = request.POST.getlist("artefact_ids")
     rule_ids_str = request.POST.get("rule_ids", "")
-    
-    # Parse rule IDs, handling empty strings and filtering out invalid IDs
     rule_ids = [rid.strip() for rid in rule_ids_str.split(",") if rid.strip()]
-    
+
     if not artefact_ids:
         return JsonResponse({'error': 'No artefacts selected'}, status=400)
-    
     if not rule_ids:
         return JsonResponse({'error': 'No rules selected'}, status=400)
 
-    # Get artefacts assigned to the current user
-    artefacts = Artefact.objects.filter(
+    artefacts_qs = Artefact.objects.filter(
         id__in=artefact_ids,
         assigned_to=request.user
-    ).prefetch_related("incident", "records")
+    ).prefetch_related(
+        "incident",
+        Prefetch("records", queryset=LogRecord.objects.only("id", "record_index", "content"))
+    )
 
-    if not artefacts.exists():
+    if not artefacts_qs.exists():
         return JsonResponse({'error': 'No valid artefacts found'}, status=400)
 
-    # Get enabled rules
-    rules = Rule.objects.filter(
+    rules_qs = Rule.objects.filter(
         id__in=rule_ids,
         is_enabled=True
     ).prefetch_related("logics", "tags")
 
-    if not rules.exists():
+    if not rules_qs.exists():
         return JsonResponse({'error': 'No valid rules found'}, status=400)
 
-    def stream():
-        yield '<p class="text-primary"><i class="fas fa-play-circle"></i> Starting rule-based analysis...</p>\n'
-        yield f'<p class="text-info"><i class="fas fa-info-circle"></i> Analyzing {artefacts.count()} artefact(s) with {rules.count()} rule(s)</p>\n'
+    # Materialize lists to avoid repeated DB hits
+    artefacts = list(artefacts_qs)
+    rules = list(rules_qs)
 
-        total_artefacts = artefacts.count()
+    def stream(artefacts, rules, request):
+        total_artefacts = len(artefacts)
+        total_rules = len(rules)
         total_matches = 0
-        
+
+        yield f'<p class="text-primary"><i class="fas fa-play-circle"></i> Starting rule-based analysis...</p>\n'
+        yield f'<p class="text-info"><i class="fas fa-info-circle"></i> Analyzing {total_artefacts} artefact(s) with {total_rules} rule(s)</p>\n'
+
         try:
             with transaction.atomic():
                 for artefact_index, artefact in enumerate(artefacts, start=1):
                     yield f'<p class="text-info"><i class="fas fa-file-alt"></i> Artefact [{artefact_index}/{total_artefacts}]: <strong>{artefact.name}</strong></p>\n'
+                    time.sleep(2)
 
                     records = list(artefact.records.all())
                     if not records:
@@ -201,25 +211,23 @@ def run_analysis(request):
 
                     total_records = len(records)
                     yield f'<p class="text-secondary"><i class="fas fa-database"></i> Processing {total_records} record(s)</p>\n'
-                    
+
                     artefact_matches = 0
                     for record_index, record in enumerate(records, start=1):
                         if record_index % 10 == 0 or record_index == total_records:
                             yield f'<p class="text-secondary"><i class="fas fa-database"></i> Record [{record_index}/{total_records}] #{record.record_index}</p>\n'
 
                         for rule_index, rule in enumerate(rules, start=1):
-                            if record_index == 1:  # Only show rule info for first record
-                                yield f'<p class="text-secondary"><i class="fas fa-cogs"></i> Applying Rule [{rule_index}/{rules.count()}]: <strong>{rule.name}</strong></p>\n'
+                            logics = list(rule.logics.all())
+                            if record_index == 1:
+                                yield f'<p class="text-secondary"><i class="fas fa-cogs"></i> Applying Rule [{rule_index}/{total_rules}]: <strong>{rule.name}</strong></p>\n'
 
                             logic_results = {}
-                            logics = list(rule.logics.all())
-                            
-                            # Evaluate each logic
                             for i, logic in enumerate(logics, 1):
                                 alias = f"L{i}"
                                 try:
                                     logic_results[alias] = logic.evaluate(record.content)
-                                    if record_index == 1:  # Only show detailed logic results for first record
+                                    if record_index == 1:
                                         result_icon = "fas fa-check-circle" if logic_results[alias] else "fas fa-times-circle"
                                         result_class = "text-success" if logic_results[alias] else "text-danger"
                                         yield f'<p class="{result_class}"><i class="{result_icon}"></i> Logic "{logic.name}": {logic_results[alias]}</p>\n'
@@ -228,7 +236,6 @@ def run_analysis(request):
                                         yield f'<p class="text-danger"><i class="fas fa-bug"></i> Error in Logic "{logic.name}": {e}</p>\n'
                                     logic_results[alias] = False
 
-                            # Evaluate boolean expression
                             try:
                                 passed = safe_boolean_eval(rule.boolean_expression, logic_results)
                             except Exception as e:
@@ -236,7 +243,6 @@ def run_analysis(request):
                                     yield f'<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Error evaluating boolean expression: {e}</p>\n'
                                 passed = False
 
-                            # Create match if rule passed
                             if passed:
                                 match, created = RuleMatch.objects.get_or_create(
                                     rule=rule,
@@ -248,8 +254,6 @@ def run_analysis(request):
                                     artefact_matches += 1
                                     total_matches += 1
                                     yield f'<p class="text-success"><i class="fas fa-check-circle"></i> Match found for record #{record.record_index} (ID: {match.id})</p>\n'
-                                    
-                                    # Create logic evaluations
                                     LogicEvaluation.objects.bulk_create([
                                         LogicEvaluation(
                                             rule_match=match,
@@ -258,7 +262,7 @@ def run_analysis(request):
                                         ) for idx, lg in enumerate(logics, 1)
                                     ])
 
-                    if artefact_matches > 0:
+                    if artefact_matches:
                         yield f'<p class="text-success"><i class="fas fa-trophy"></i> Found {artefact_matches} match(es) for artefact: {artefact.name}</p>\n'
                     else:
                         yield f'<p class="text-muted"><i class="fas fa-times-circle"></i> No matches found for artefact: {artefact.name}</p>\n'
@@ -269,31 +273,27 @@ def run_analysis(request):
             yield f'<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> Analysis error: {str(e)}</p>\n'
             return
 
-        # Trigger artefact-level AI analysis
         yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering AI analysis for artefacts...</p>\n'
         artefact_links = []
-        
         for artefact_idx, artefact in enumerate(artefacts, start=1):
             try:
                 url = request.build_absolute_uri(reverse('analysis:ai_artefact_analysis', args=[artefact.id]))
                 resp = requests.post(url, timeout=90)
                 if resp.ok:
-                    artefact_result_url = request.build_absolute_uri(reverse('analysis:artefact_result', args=[artefact.id]))
-                    artefact_links.append(f'<a href="{artefact_result_url}" target="_blank" class="btn btn-sm btn-outline-primary me-1">{artefact.name}</a>')
+                    result_url = request.build_absolute_uri(reverse('analysis:artefact_result', args=[artefact.id]))
+                    artefact_links.append(f'<a href="{result_url}" target="_blank" class="btn btn-sm btn-outline-primary me-1">{artefact.name}</a>')
                     yield f'<p class="text-success"><i class="fas fa-robot"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis completed for <strong>{artefact.name}</strong></p>\n'
                 else:
                     yield f'<p class="text-danger"><i class="fas fa-times-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI analysis failed for {artefact.name}: {resp.status_code}</p>\n'
             except Exception as e:
                 yield f'<p class="text-danger"><i class="fas fa-exclamation-circle"></i> Artefact [{artefact_idx}/{total_artefacts}]: AI request error for {artefact.name}: {e}</p>\n'
 
-        # Add result buttons to the modal
         if artefact_links:
             yield f'<script>document.getElementById("results-section").classList.remove("d-none"); document.getElementById("result-buttons").innerHTML = "{" ".join(artefact_links)}";</script>\n'
 
-        # Trigger incident-level AI analysis
         incident_id = None
-        if artefacts.exists() and artefacts.first().incident:
-            incident_id = str(artefacts.first().incident.incident_id)
+        if artefacts and artefacts[0].incident:
+            incident_id = str(artefacts[0].incident.incident_id)
 
         if incident_id:
             yield '<p class="text-primary"><i class="fas fa-robot"></i> Triggering incident-level AI analysis...</p>\n'
@@ -301,8 +301,8 @@ def run_analysis(request):
                 url_inc = request.build_absolute_uri(reverse('analysis:ai_incident_analysis', args=[incident_id]))
                 resp = requests.post(url_inc, timeout=300)
                 if resp.ok:
-                    incident_result_url = request.build_absolute_uri(reverse('core:incident_detail', args=[incident_id]))
-                    yield f'<p class="text-success"><i class="fas fa-check-circle"></i> Incident-level AI analysis completed. <a href="{incident_result_url}" target="_blank" class="btn btn-sm btn-outline-success">View Incident</a></p>\n'
+                    detail_url = request.build_absolute_uri(reverse('core:incident_detail', args=[incident_id]))
+                    yield f'<p class="text-success"><i class="fas fa-check-circle"></i> Incident-level AI analysis completed. <a href="{detail_url}" target="_blank" class="btn btn-sm btn-outline-success">View Incident</a></p>\n'
                 else:
                     yield f'<p class="text-danger"><i class="fas fa-times-circle"></i> Incident-level AI failed: {resp.status_code}</p>\n'
             except Exception as e:
@@ -312,7 +312,7 @@ def run_analysis(request):
 
         yield '<p class="text-success"><i class="fas fa-flag-checkered"></i> Full analysis complete.</p>\n'
 
-    return StreamingHttpResponse(stream(), content_type='text/html')
+    return StreamingHttpResponse(stream(artefacts, rules, request), content_type='text/html')
 
 @method_decorator(login_required, name='dispatch')
 class ArtefactAnalysisResultView(TemplateView):
@@ -438,12 +438,6 @@ class ArtefactAnalysisResultView(TemplateView):
         return context
 
 
-# Optional: Add a simple AJAX view for quick filtering without page reload
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-from datetime import timedelta
-import pprint
-
 @login_required
 def filter_matches_ajax(request, pk):
     """AJAX endpoint for live filtering without page reload"""
@@ -511,12 +505,8 @@ class IncidentAnalysisDashboardView(TemplateView):
 
     def get_context_data(self, **kwargs):
         incidents = Incident.objects.filter(responders=self.request.user).prefetch_related('artefacts__rule_matches')
-        return {
-            "incidents": incidents
-        }
+        return { "incidents": incidents }
 
 def ai_intel_generated_rules_view(request):
-
-    context = generate_rules_from_internet_intel()
-
+    context = {"response": generate_rules_from_internet_intel()}
     return render(request, "analysis/ai/ai_intel_rules.html", context)

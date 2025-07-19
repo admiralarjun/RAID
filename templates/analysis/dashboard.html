@@ -128,7 +128,7 @@
                                 <tr {% if artefact.recent_matches > 5 %}class=""{% endif %}>
                                     <td>
                                         <div class="d-flex">
-                                            <strong>{{ artefact.name|truncatechars:30 }}</strong>
+                                            <strong>{{ artefact.name }}</strong>
                                             {% if artefact.recent_matches > 5 %}
                                             <span class="badge bg-danger ms-2">Hot</span>
                                             {% endif %}
@@ -136,7 +136,7 @@
                                     </td>
                                     <td>
                                         <a href="{% url 'analysis:results_by_incident' %}" class="text-decoration-none">
-                                            {{ artefact.incident.title|truncatechars:25 }}
+                                            {{ artefact.incident.title }}
                                         </a>
                                     </td>
                                     <td>
@@ -209,7 +209,7 @@
                                 <tr>
                                     <td>
                                         <div>
-                                            <strong>{{ incident.title|truncatechars:40 }}</strong>
+                                            <strong>{{ incident.title }}</strong>
                                             <br>
                                             <small class="text-muted">{{ incident.created_at|date:"M d, Y" }}</small>
                                         </div>
@@ -228,7 +228,7 @@
                                         <div class="d-flex flex-wrap gap-1">
                                             {% for responder in incident.responders.all %}
                                             <span class="badge  text-dark">
-                                                {{ responder.get_full_name|default:responder.username|truncatechars:15 }}
+                                                {{ responder.get_full_name|default:responder.username }}
                                             </span>
                                             {% endfor %}
                                         </div>
@@ -270,7 +270,7 @@
                         {% for rule in top_rules %}
                         <div class="list-group-item d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
-                                <div class="fw-semibold">{{ rule.name|truncatechars:25 }}</div>
+                                <div class="fw-semibold">{{ rule.name }}</div>
                                 {% if rule.tags.exists %}
                                 <div class="mt-1">
                                     {% for tag in rule.tags.all|slice:":3" %}

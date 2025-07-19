@@ -32,7 +32,7 @@
                         {% for incident in incidents %}
                         <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" 
                            id="filter-{{ incident.id }}" onclick="filterByIncident({{ incident.id }})">
-                            {{ incident.title|truncatechars:25 }}
+                            {{ incident.title }}
                             <span class="badge bg-secondary rounded-pill">{{ incident.artefact_count }}</span>
                         </a>
                         {% endfor %}
@@ -89,10 +89,10 @@
                                         <td>
                                             <strong>{{ artefact.name }}</strong>
                                             {% if artefact.description %}
-                                            <p class="small text-muted mb-0">{{ artefact.description|truncatechars:50 }}</p>
+                                            <p class="small text-muted mb-0">{{ artefact.description }}</p>
                                             {% endif %}
                                         </td>
-                                        <td>{{ artefact.incident.title|truncatechars:25 }}</td>
+                                        <td>{{ artefact.incident.title }}</td>
                                         <td><span class="badge bg-info">{{ artefact.get_type_display }}</span></td>
                                         <td>{{ artefact.created_at|date:"Y-m-d" }}</td>
                                         <td>{{ artefact.records.count }}</td>
@@ -210,7 +210,7 @@
                                         <i class="fas fa-info-circle text-info"></i>
                                     </button>
                                 </td>
-                                <td>{{ rule.description|truncatechars:60 }}</td>
+                                <td>{{ rule.description }}</td>
                                 <td>
                                     <span class="badge bg-{% if rule.severity == 'critical' %}danger{% elif rule.severity == 'high' %}warning{% elif rule.severity == 'medium' %}info{% elif rule.severity == 'low' %}secondary{% else %}light{% endif %}">
                                         {{ rule.severity|title }}
@@ -245,7 +245,7 @@
                                                     </div>
                                                     <div class="card-body p-2">
                                                         <div class="mb-1"><strong>Method:</strong> <code>{{ logic.method }}</code></div>
-                                                        <div class="mb-1"><strong>Pattern:</strong> <code>{{ logic.pattern|truncatechars:80 }}</code></div>
+                                                        <div class="mb-1"><strong>Pattern:</strong> <code>{{ logic.pattern }}</code></div>
                                                     </div>
                                                 </div>
                                             </div>

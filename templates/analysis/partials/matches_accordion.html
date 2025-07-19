@@ -35,7 +35,7 @@
               {% endfor %}
             </div>
             <div class="small text-muted mt-1">
-              {{ log_record.content|truncatechars:100 }}
+              {{ log_record.content }}
             </div>
           </div>
         </div>
@@ -81,7 +81,7 @@
                 
                 <td>
                   <span class="text-muted small">
-                    {{ match.rule.description|default:"No description"|truncatechars:80 }}
+                    {{ match.rule.description|default:"No description" }}
                   </span>
                 </td>
                 
@@ -95,7 +95,7 @@
                     <div class="text-muted small">
                       <code>{{ logic.logic_unit.method }}</code>
                       {% if logic.logic_unit.pattern %}
-                      <span class="ms-1">{{ logic.logic_unit.pattern|truncatechars:30 }}</span>
+                      <span class="ms-1">{{ logic.logic_unit.pattern }}</span>
                       {% endif %}
                       {% if logic.logic_unit.negate %}
                       <span class="badge bg-warning text-dark ms-1">NOT</span>

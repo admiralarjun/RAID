@@ -56,7 +56,7 @@
         {% for h in ai_artefact_analysis_result.highlights %}
         <tr>
           <td>
-          <a href="{% url 'core:log_record_permalink' h.log_index %}" class="text-decoration-none">
+          <a href="{% url 'core:log_record_permalink' h.record_index %}" class="text-decoration-none">
             # {{ h.log_index }}
           </a>
           </td>
