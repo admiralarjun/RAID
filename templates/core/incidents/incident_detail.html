@@ -226,7 +226,7 @@
 
 <!-- Correlation Graph -->
 <div class="row mb-4">
-  <div class="col-12">
+  <!-- <div class="col-12">
     <div class="card" style="box-shadow: var(--shadow-deep); border-radius: 0; clip-path: var(--cut-diagonal);">
       <div class="card-header py-2 d-flex justify-content-between align-items-center" style="background-color: var(--dark-bg); color: var(--text-accent); text-shadow: var(--glow-primary);">
         <h6 class="mb-0">
@@ -234,88 +234,11 @@
         </h6>
       </div>
       <div class="card-body p-0" style="background-color: var(--dark-bg); border-top: 2px solid var(--neon-blue);">
-        <div id="cy" style="width: 100%; height: 500px;"></div>
+       
       </div>
     </div>
+  </div> -->
   </div>
-</div>
-
-
-
-<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const graphData = {{ incident_ai.graph|safe }};
-
-    const elements = [];
-
-    graphData.nodes.forEach(node => {
-      elements.push({
-        data: { id: node.id, label: node.label, type: node.type }
-      });
-    });
-
-    graphData.edges.forEach(edge => {
-      elements.push({
-        data: { source: edge.source, target: edge.target, label: edge.relationship || '' }
-      });
-    });
-
-    const cy = cytoscape({
-      container: document.getElementById('cy'),
-      elements: elements,
-      layout: {
-        name: 'cose',
-        fit: true,
-        padding: 50,
-        nodeRepulsion: 800000,
-        idealEdgeLength: 200,
-        edgeElasticity: 100,
-        gravity: 80,
-        numIter: 1000,
-        coolingFactor: 0.99
-      },
-      style: [
-        {
-          selector: 'node',
-          style: {
-            'label': 'data(label)',
-            'font-size': 20,
-            'text-valign': 'center',
-            'color': 'white',
-            'background-color': 'whitesmoke',
-            'border-color': '#f8f9fa',
-            'border-width': 2,
-            'width': 50,
-            'height': 50,
-            'text-wrap': 'wrap',
-            'text-outline-color': 'black',
-            'text-outline-width': 1
-          }
-        },
-        {
-          selector: 'edge',
-          style: {
-            'width': 2,
-            'line-color': '#00d4ff',
-            'target-arrow-color': '#ff0080',
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            'label': 'data(label)',
-            'font-size': 15,
-            'color': 'whitesmoke',
-            'text-outline-color': '#00ffff',
-            'text-outline-width': 0.5
-          }
-        }
-      ]
-    });
-  });
-</script>
-
-
-
-
 
   <!-- Full-Width Hypotheses and Actions -->
   <div class="row mb-4">
@@ -385,5 +308,20 @@
       </div>
     </div>
   </div>
+
+    <div class="row mb-3">
+
+   <div class="card">
+    <div class="card-header">WIP Graph data</div>
+    <div class="card-body">
+       {{action_hypothesis_chord|safe}}
+        <hr>
+        {{adversary_path_sankey|safe}}
+        <hr>
+        {{mitre_heatmap|safe}}
+    </div>
+   </div>
+  </div>
 </div>
+
 {% endblock %}

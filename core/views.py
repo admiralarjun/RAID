@@ -4,7 +4,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse, HttpResponse
 from django.utils.timezone import localtime
-import csv
+import csv, json
 from textwrap import shorten
 from fpdf import FPDF
 from datetime import datetime
@@ -138,6 +138,18 @@ class IncidentDetailView(LoginRequiredMixin, DetailView):
         # Incident-level analysis
         incident_ai = incident.ai_incident_results.order_by('-generated_at').first()
         ctx['incident_ai'] = incident_ai
+
+        if incident_ai and incident_ai.graphs:
+                try:
+                    graphs = json.loads(incident_ai.graphs)
+                except Exception as e:
+                    graphs = {}
+        else:
+            graphs = {}
+
+        ctx['action_hypothesis_chord'] = graphs.get('action_hypothesis_chord', {})
+        ctx['adversary_path_sankey'] = graphs.get('adversary_path_sankey', [])
+        ctx['mitre_heatmap'] = graphs.get('mitre_heatmap', [])
 
         if incident_ai:
             ctx['hypotheses'] = list(incident_ai.hypotheses.all())

@@ -5,12 +5,11 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-
 from core.models import *
 from analysis.models import *
 from google import genai
 from google.genai import types
-
+from typing import List, Dict, Literal
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from django.views.decorators.csrf import csrf_exempt
@@ -177,7 +176,7 @@ def ai_artefact_analysis(request, artefact_id):
 
     # Call LLM
     ai_response = client.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-2.5-flash",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
@@ -211,6 +210,7 @@ class ArtefactSummary(BaseModel):
     name: str = Field(..., description="Name of the artefact")
     artefact_type: str = Field(..., description="Type of the artefact")
     summary: str = Field(..., description="Concise summary of the artefact analysis")
+    narrative: str = Field(..., description="Detailed narrative of the artefact analysis")
     highlights: List[int] = Field(..., description="List of record indices for key highlights")
     recommendations: List[str] = Field(..., description="Actionable recommendations for this artefact")
 
@@ -223,20 +223,7 @@ class Action(BaseModel):
     hypothesis_index: int = Field(..., description="Index of the related hypothesis")
     description: str = Field(..., description="Description of the recommended action")
 
-class GraphNode(BaseModel):
-    id: str
-    label: str
-    type: str
-    icon: str  # Example: "fa fa-file-code"
 
-class GraphEdge(BaseModel):
-    source: str
-    target: str
-    relationship: Optional[str] = None
-
-class IncidentGraph(BaseModel):
-    nodes: List[GraphNode]
-    edges: List[GraphEdge]
 
 class IncidentAIOutput(BaseModel):
     incident_summary: str = Field(..., description="Cohesive overview of the incident")
@@ -261,7 +248,8 @@ def ai_incident_analysis(request, incident_id):
         artefact_summaries.append({
             "name": arte.name,
             "artefact_type": arte.artefact_type,
-            "summary": latest.summary.replace("\n", " ")[:200],
+            "summary": latest.summary,
+            "narrative": latest.narrative,
             "highlights": [h["record_index"] for h in latest.highlights],
             "recommendations": latest.raw_response.get("recommendations", [])
         })
@@ -285,6 +273,7 @@ def ai_incident_analysis(request, incident_id):
         prompt += f"- Artefact: {a.name} ({a.artefact_type})\n"
         prompt += f"  Summary: {a.summary}\n"
         prompt += f"  Key Highlights (record indices): {a.highlights}\n"
+        prompt += f"  Narrative: {a.narrative}\n"
         prompt += f"  Recommended Next Steps: {a.recommendations}\n"
 
     prompt += f"""
@@ -314,7 +303,7 @@ def ai_incident_analysis(request, incident_id):
     """
 
     resp = client.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-2.5-flash",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
@@ -329,6 +318,8 @@ def ai_incident_analysis(request, incident_id):
     ira = IncidentAnalysisResult.objects.create(
         incident=incident,
         summary=incident_output.incident_summary,
+        workflows=incident_output.workflows,
+        gaps=incident_output.gaps,
         prompt_used=prompt,
         raw_response={**resp.model_dump()},
         generated_at=timezone.now(),
@@ -350,83 +341,148 @@ def ai_incident_analysis(request, incident_id):
                     status='todo'
                 )
 
-    # Generate correlation graph
-    incident_graph = generate_incident_correlation_graph(
-        incident=incident,
-        artefacts=artefact_summaries,
-        hypotheses=incident_output.hypotheses,
-        actions=incident_output.actions,
-        summary=incident_output.incident_summary,
+    # Call the graph generation function from here that returns the visual graphs
+    ira.graphs = json.dumps(
+            generate_incident_visual_graphs(
+            incident=incident,
+            artefacts=artefact_summaries,
+            hypotheses=incident_output.hypotheses,
+            actions=incident_output.actions
+            ).model_dump()
     )
-    print(f"Generated Incident Graph for {incident.incident_id}:\n{incident_graph}")
-    ira.graph = incident_graph.model_dump()
     ira.save()
-
     return JsonResponse({"incident_ai_result_id": ira.id, **incident_output.model_dump()})
 
 
-@csrf_exempt
-def generate_incident_correlation_graph(
-    incident: Incident,
-    artefacts: List[ArtefactSummary],
-    hypotheses: List[Hypothesis],
-    actions: List[Action],
-    summary: str,
-) -> IncidentGraph:
-    """
-    Builds a context-rich prompt and generates the graph using LLM.
-    """
-
-    # Construct the input text for the LLM
-    prompt = f"""
-    You are generating a cyber incident graph describing relationships between artefacts, attack hypotheses, and recommended actions.
+# ActionHypothesisChordGraph (animated chord)
+class ChordLink(BaseModel):
+    from_node: str = Field(..., alias="from")
+    to: str
+    value: int = Field(..., description="Confidanence score or descriptive value for the link", ge=1, le=100)
     
-    Incident Details:
-    - Incident ID: {incident.incident_id}
-    - Title: {incident.title}
-    - Summary: {summary}
 
-    Artefacts:
+class ChordNode(BaseModel):
+    id: str
+
+class ActionHypothesisChordGraph(BaseModel):
+    nodes: List[ChordNode]
+    links: List[ChordLink]
+
+# MitreHeatmap (2D matrix heatmap)
+
+class ColumnSettings(BaseModel):
+    fill: Optional[str]  # Hex code or am5 color alias
+
+class HeatmapCell(BaseModel):
+    x: str
+    y: str
+    value: int = Field(..., description="Confidanence score or descriptive value for the link", ge=1, le=100)
+    columnSettings: Optional[ColumnSettings] = None
+
+class MitreHeatmap(BaseModel):
+    data: List[HeatmapCell]
+    x_categories: List[str]
+    y_categories: List[str]
+
+# AdversaryPathSankey (traceable Sankey path)
+
+class SankeyLink(BaseModel):
+    from_node: str = Field(..., alias="from")
+    to: str
+    value: int = Field(..., description="Confidanence score or descriptive value for the link", ge=1, le=100)
+    id: str  # Unique identifier for the link path
+
+class AdversaryPathSankey(BaseModel):
+    links: List[SankeyLink]
+
+# Master Response Model
+class IncidentVisualGraphSet(BaseModel):
+    action_hypothesis_chord: ActionHypothesisChordGraph
+    mitre_heatmap: MitreHeatmap
+    adversary_path_sankey: AdversaryPathSankey
+
+
+def generate_incident_visual_graphs(
+    incident,
+    artefacts: List[ArtefactSummary],
+    hypotheses: List,  # from IncidentAIOutput
+    actions: List      # from IncidentAIOutput
+) -> IncidentVisualGraphSet:
     """
-    for art in artefacts:
-        prompt += f"- {art.name} ({art.artefact_type}): {art.summary}\n"
+    Generate action-hypothesis chord, MITRE heatmap, and adversary path Sankey diagrams
+    for a given incident using structured LLM prompt and strict response schema.
+    """
+
+    # === Prompt Construction ===
+    prompt = f"""
+        You are an advanced cyber threat visualization agent.
+
+        Your task is to generate **three graph models** based on incident-level structured analysis data. Output MUST strictly match the expected JSON schema defined below.
+
+        Incident Metadata:
+        - ID: {incident.incident_id}
+        - Title: {incident.title}
+
+        Artefacts:
+    """
+    for artefact in artefacts:
+        prompt += (
+            f"- Name: {artefact.name} ({artefact.artefact_type})\n"
+            f"  Summary: {artefact.summary}\n"
+        )
 
     prompt += "\nHypotheses:\n"
-    for idx, hyp in enumerate(hypotheses):
-        prompt += f"- Hypothesis #{idx + 1}: {hyp.description}\n"
-        prompt += f"  Supporting Artefacts: {', '.join(hyp.artefacts)}\n"
-        prompt += f"  MITRE Techniques: {', '.join(hyp.mitre_techniques)}\n"
+    for i, hyp in enumerate(hypotheses):
+        prompt += (
+            f"- H{i+1}: {hyp.description}\n"
+            f"  Artefacts: {', '.join(hyp.artefacts)}\n"
+            f"  MITRE Techniques: {', '.join(hyp.mitre_techniques)}\n"
+        )
 
     prompt += "\nActions:\n"
-    for act in actions:
-        prompt += f"- Action: {act.description} (Linked to Hypothesis #{act.hypothesis_index})\n"
+    for j, act in enumerate(actions):
+        prompt += (
+            f"- A{j+1}: {act.description} (Linked to Hypothesis #{act.hypothesis_index + 1})\n"
+        )
 
+    # === Graph Description ===
     prompt += """
-    Generate a directed graph capturing these relationships.
-    - Nodes: Artefacts, Hypotheses, and Actions.
-    - Edges: Show which artefacts support which hypotheses, and which actions address each hypothesis.
-    - Each node should have:
-      - A unique ID
-      - A short label
-      - A type (Artefact / Hypothesis / Action)
-      - A suitable icon (font-awesome class like 'fa fa-file', 'fa fa-lightbulb', 'fa fa-wrench').
+        Now generate the following structured graphs in JSON:
+
+        1. **action_hypothesis_chord**: A chord diagram where:
+        - Each action and hypothesis is a node with full action or hypothesis short names like H1/A1: The short text.
+        - Also arrange the nodes in scattered/shuffled/random order for better tracing and visualization.
+        - Links represent confidence score.
+        - Useful for showing which actions affect which hypotheses and it's a many-to-many mapping.
+
+        2. **mitre_heatmap**:
+        - A 2D matrix of MITRE technique usage.
+        - Keep the matrix size manageable (e.g., 6-8 x 6-8).
+        - X-axis: MITRE tactic (from ATT&CK like "initial-access", "execution", etc.)
+        - Y-axis: Hypothesis description (e.g., "H1: Initial Access via Phishing")
+        - Each cell: technique use intensity (value), and optionally `columnSettings.fill` (color).
+
+        3. **adversary_path_sankey**:
+        - A Sankey-style flow from MITRE → Artefact → Hypothesis → Action
+        - Each `from → to` pair has a value of something descriptive and short.
+        - Links must have unique `id`.
+        - Useful for visualizing attack chains and pivot paths.
+
     """
 
-    # LLM Call
+    # === LLM Call ===
     resp = client.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-2.5-flash",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
-            "response_schema": IncidentGraph,
+            "response_schema": IncidentVisualGraphSet,
         },
     )
 
-    # Parse response
-    graph_data = json.loads(resp.text)
-    graph = IncidentGraph(**graph_data)
-
-    return graph
+    # === Parse and Validate ===
+    graph_data = IncidentVisualGraphSet(**json.loads(resp.text))
+    return graph_data
 
 def generate_rules_from_internet_intel():
     prompt = """
